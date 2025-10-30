@@ -50,7 +50,7 @@ from ping_mcp_server import PingMCPServer
 from ollama_mcp import OllamaMCPServer
 from pihole_mcp import PiholeMCPServer
 from unifi_mcp_optimized import UnifiMCPServer
-import ups_mcp_server
+from ups_mcp_server import UpsMCPServer
 
 # Import yaml for loading Ansible inventory
 import yaml
@@ -110,7 +110,7 @@ class UnifiedHomelabServer:
         self.unifi = UnifiMCPServer()  # Unifi doesn't use Ansible inventory
 
         logger.info("Initializing UPS MCP Server...")
-        self.ups = None  # UPS server is async and initialized separately
+        self.ups = UpsMCPServer(ansible_inventory=shared_inventory)
 
         # Register handlers
         self.setup_handlers()
@@ -131,73 +131,7 @@ class UnifiedHomelabServer:
             tools.extend(await self.ollama.list_tools())
             tools.extend(await self.pihole.list_tools())
             tools.extend(await self.unifi.list_tools())
-            
-            # Add UPS tools
-            tools.extend([
-                types.Tool(
-                    name="ups_get_ups_status",
-                    description="Get status of all UPS devices across all NUT servers",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {},
-                        "required": [],
-                    },
-                ),
-                types.Tool(
-                    name="ups_get_ups_details",
-                    description="Get detailed information for a specific UPS device",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "host": {
-                                "type": "string",
-                                "description": "NUT server hostname (e.g., 'dell-server', 'cyber-server')",
-                            },
-                            "ups_name": {
-                                "type": "string",
-                                "description": "UPS device name (optional, defaults to first UPS on host)",
-                            },
-                        },
-                        "required": ["host"],
-                    },
-                ),
-                types.Tool(
-                    name="ups_get_battery_runtime",
-                    description="Get battery runtime estimates for all UPS devices",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {},
-                        "required": [],
-                    },
-                ),
-                types.Tool(
-                    name="ups_list_ups_devices",
-                    description="List all UPS devices configured in the inventory",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {},
-                        "required": [],
-                    },
-                ),
-                types.Tool(
-                    name="ups_get_power_events",
-                    description="Check for recent power events (status changes from online to battery)",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {},
-                        "required": [],
-                    },
-                ),
-                types.Tool(
-                    name="ups_reload_inventory",
-                    description="Reload Ansible inventory from disk (useful after inventory changes)",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {},
-                        "required": [],
-                    },
-                ),
-            ])
+            tools.extend(await self.ups.list_tools())
 
             logger.info(f"Total tools available: {len(tools)}")
             return tools
@@ -222,9 +156,7 @@ class UnifiedHomelabServer:
                 elif name.startswith("unifi_"):
                     return await self.unifi.handle_tool(name, arguments)
                 elif name.startswith("ups_"):
-                    # Route to UPS server - strip prefix to get the tool name
-                    ups_tool_name = name[4:]  # Remove "ups_" prefix
-                    return await ups_mcp_server.handle_call_tool(ups_tool_name, arguments)  # type: ignore
+                    return await self.ups.handle_tool(name, arguments)
                 else:
                     return [
                         types.TextContent(
