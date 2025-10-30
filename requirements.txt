@@ -3,7 +3,7 @@ mcp>=1.0.0
 
 # Ansible configuration management (official library)
 # Falls back to manual YAML parsing on unsupported systems (e.g., Windows)
-ansible>=2.9,<3.0
+ansible-core>=2.15.0
 
 # Async HTTP client for Docker API, Ollama, Pi-hole
 aiohttp>=3.9.0
@@ -17,6 +17,8 @@ PyYAML>=6.0
 
 # Optional: Better JSON handling
 orjson>=3.9.0
+
+
 
 # Optional: For future enhancements
 python-dotenv>=1.0.0

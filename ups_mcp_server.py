@@ -16,6 +16,7 @@ Features:
 import asyncio
 import json
 import logging
+from logging import config
 import os
 import sys
 from pathlib import Path
@@ -116,6 +117,17 @@ def load_ansible_inventory():
         # Try to get UPS devices configuration
         ups_devices_raw = manager.get_host_variable(hostname, "ups_devices", "ups")
         
+        logger.info(f"DEBUG: Raw ups_devices for {hostname}: {ups_devices_raw}, type: {type(ups_devices_raw)}")
+
+        # If ups_devices comes back as a string representation of a list, parse it
+        if isinstance(ups_devices_raw, str) and ups_devices_raw.startswith('['):
+            try:
+                import ast
+                ups_devices_raw = ast.literal_eval(ups_devices_raw)
+                logger.info(f"DEBUG: Parsed string to list for {hostname}")
+            except (ValueError, SyntaxError) as e:
+                logger.warning(f"Could not parse ups_devices string for {hostname}: {e}")
+
         # Normalize UPS devices to list of dicts
         if isinstance(ups_devices_raw, str):
             ups_devices = [{"name": ups_devices_raw, "description": ""}]
@@ -157,47 +169,19 @@ async def query_nut_server(
     host: str, port: int, ups_name: str, username: str = "", password: str = ""
 ) -> Optional[Dict]:
     """
-    Query NUT server using network protocol
-
+    Query NUT server using basic network protocol
+    
     Args:
         host: NUT server hostname or IP
         port: NUT server port (usually 3493)
         ups_name: Name of the UPS device
         username: Optional username for authentication
         password: Optional password for authentication
-
+    
     Returns:
         Dict with UPS variables or None on error
     """
-    try:
-        # Try using PyNUT library if available
-        try:
-            from nut2 import PyNUTClient
-
-            client = PyNUTClient(host=host, port=port, login=username, password=password)
-
-            # Get UPS variables
-            ups_vars = client.list_vars(ups_name)
-
-            # Get UPS commands (optional)
-            try:
-                ups_commands = client.list_commands(ups_name)
-            except:
-                ups_commands = []
-
-            return {
-                "variables": ups_vars,
-                "commands": ups_commands,
-            }
-
-        except ImportError:
-            # Fallback: Implement basic NUT protocol
-            logger.warning("PyNUT (nut2) library not available, using basic protocol implementation")
-            return await query_nut_basic(host, port, ups_name, username, password)
-
-    except Exception as e:
-        logger.error(f"Error querying NUT server {host}:{port} for UPS '{ups_name}': {e}")
-        return None
+    return await query_nut_basic(host, port, ups_name, username, password)
 
 
 async def query_nut_basic(
@@ -239,17 +223,22 @@ async def query_nut_basic(
                 if not line or line.startswith("END LIST VAR"):
                     break
 
+
                 # Parse: VAR ups_name variable.name "value"
+                # Handle both quoted and unquoted formats:
+                # Standard: VAR ups_name var.name "value"
+                # Unifi:    VAR "ups_name" "var.name" value
                 if line.startswith("VAR"):
-                    parts = line.split(None, 2)
-                    if len(parts) >= 3:
-                        var_full = parts[2]
-                        # Split variable name and value
-                        if ' ' in var_full:
-                            var_name, var_value = var_full.split(' ', 1)
-                            # Remove quotes from value
-                            var_value = var_value.strip('"')
-                            variables[var_name] = var_value
+                    parts = line.split(None, 3)  # Split into max 4 parts
+                    if len(parts) >= 4:
+                        # parts[0] = "VAR"
+                        # parts[1] = ups_name (might be quoted)
+                        # parts[2] = variable name (might be quoted)
+                        # parts[3] = value (might be quoted)
+                        
+                        var_name = parts[2].strip('"')
+                        var_value = parts[3].strip('"')
+                        variables[var_name] = var_value
 
             # Logout
             writer.write(b"LOGOUT\n")
@@ -265,7 +254,7 @@ async def query_nut_basic(
         }
 
     except asyncio.TimeoutError:
-        logger.error(f"Timeout connecting to NUT server {host}:{port}")
+        logger.error(f"Basic: Timeout connecting to NUT server {host}:{port}")
         return None
     except Exception as e:
         logger.error(f"Error in basic NUT protocol query: {e}")
@@ -497,6 +486,10 @@ async def handle_call_tool(
             total_devices = 0
 
             for server_name, config in sorted(nut_servers.items()):
+                
+                logger.info(f"DEBUG: Processing server {server_name}")
+                logger.info(f"DEBUG: config['ups_devices'] = {config['ups_devices']}, type = {type(config['ups_devices'])}")
+                
                 for ups in config["ups_devices"]:
                     total_devices += 1
                     ups_name = ups.get("name", "ups")
