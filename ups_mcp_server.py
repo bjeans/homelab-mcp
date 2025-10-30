@@ -116,14 +116,14 @@ def load_ansible_inventory():
         # Try to get UPS devices configuration
         ups_devices_raw = manager.get_host_variable(hostname, "ups_devices", "ups")
         
-        logger.debug(f"DEBUG: Raw ups_devices for {hostname}: {ups_devices_raw}, type: {type(ups_devices_raw)}")
+        logger.debug(f"Raw ups_devices for {hostname}: {ups_devices_raw}, type: {type(ups_devices_raw)}")
 
         # If ups_devices comes back as a string representation of a list, parse it
         if isinstance(ups_devices_raw, str) and ups_devices_raw.startswith('['):
             try:
                 import ast
                 ups_devices_raw = ast.literal_eval(ups_devices_raw)
-                logger.debug(f"DEBUG: Parsed string to list for {hostname}")
+                logger.debug(f"Parsed string to list for {hostname}")
             except (ValueError, SyntaxError) as e:
                 logger.warning(f"Could not parse ups_devices string for {hostname}: {e}")
 
@@ -486,8 +486,8 @@ async def handle_call_tool(
 
             for server_name, config in sorted(nut_servers.items()):
                 
-                logger.debug(f"DEBUG: Processing server {server_name}")
-                logger.debug(f"DEBUG: config['ups_devices'] = {config['ups_devices']}, type = {type(config['ups_devices'])}")
+                logger.debug(f"Processing server {server_name}")
+                logger.debug(f"config['ups_devices'] = {config['ups_devices']}, type = {type(config['ups_devices'])}")
                 
                 for ups in config["ups_devices"]:
                     total_devices += 1
