@@ -41,6 +41,7 @@ COPY --chown=mcpuser:mcpuser unifi_mcp_optimized.py .
 COPY --chown=mcpuser:mcpuser mcp_registry_inspector.py .
 COPY --chown=mcpuser:mcpuser unifi_exporter.py .
 COPY --chown=mcpuser:mcpuser mcp_config_loader.py .
+COPY --chown=mcpuser:mcpuser ups_mcp_server.py .
 
 # Copy entrypoint script
 COPY --chown=mcpuser:mcpuser docker-entrypoint.sh /usr/local/bin/

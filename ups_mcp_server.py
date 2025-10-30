@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-UPS Monitoring MCP Server v1.0
+UPS Monitoring MCP Server v1.1
 Provides UPS status monitoring via Network UPS Tools (NUT) protocol
 Reads host configuration from Ansible inventory with fallback to .env
 
@@ -11,6 +11,7 @@ Features:
 - Track UPS health metrics
 - Support for multiple UPS devices per host
 - Cross-platform NUT protocol support
+- Dual-mode: Standalone or Unified MCP Server integration
 """
 
 import asyncio
@@ -19,7 +20,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional
 
 import yaml
 
@@ -44,7 +45,9 @@ UPS_ALLOWED_VARS = COMMON_ALLOWED_ENV_VARS | {
     "NUT_*",  # Pattern for NUT-specific variables
 }
 
-load_env_file(ENV_FILE, allowed_vars=UPS_ALLOWED_VARS, strict=True)
+# Only load env file at module level if not in unified mode
+if not os.getenv("MCP_UNIFIED_MODE"):
+    load_env_file(ENV_FILE, allowed_vars=UPS_ALLOWED_VARS, strict=True)
 
 # Configuration
 ANSIBLE_INVENTORY_PATH = os.getenv("ANSIBLE_INVENTORY_PATH", "")
@@ -54,7 +57,7 @@ DEFAULT_NUT_PASSWORD = os.getenv("NUT_PASSWORD", "")
 
 logger.info(f"Ansible inventory: {ANSIBLE_INVENTORY_PATH}")
 
-# Global inventory cache
+# Global inventory cache (for standalone mode)
 INVENTORY_DATA = None
 
 # NUT Status codes - OL = Online, OB = On Battery, LB = Low Battery, etc.
@@ -76,10 +79,10 @@ NUT_STATUS_CODES = {
 }
 
 
-def load_ansible_inventory():
+def load_ansible_inventory_global():
     """
     Load NUT server configuration from Ansible inventory using centralized config manager
-    Returns dict with nut_servers configuration
+    Returns dict with nut_servers configuration (uses global cache)
     """
     global INVENTORY_DATA
 
@@ -106,6 +109,15 @@ def load_ansible_inventory():
         logger.warning("No hosts found in 'nut_servers' group")
         return {"nut_servers": {}}
 
+    nut_servers = _build_nut_servers_dict(manager, nut_hosts)
+    
+    INVENTORY_DATA = {"nut_servers": nut_servers}
+    logger.info(f"Loaded {len(nut_servers)} NUT servers from Ansible inventory")
+    return INVENTORY_DATA
+
+
+def _build_nut_servers_dict(manager, nut_hosts):
+    """Build the NUT servers configuration dict from hosts"""
     nut_servers = {}
     for hostname, host_ip in nut_hosts.items():
         # Extract NUT-specific configuration
@@ -116,6 +128,17 @@ def load_ansible_inventory():
         # Try to get UPS devices configuration
         ups_devices_raw = manager.get_host_variable(hostname, "ups_devices", "ups")
         
+        logger.debug(f"Raw ups_devices for {hostname}: {ups_devices_raw}, type: {type(ups_devices_raw)}")
+
+        # If ups_devices comes back as a string representation of a list, parse it
+        if isinstance(ups_devices_raw, str) and ups_devices_raw.startswith('['):
+            try:
+                import ast
+                ups_devices_raw = ast.literal_eval(ups_devices_raw)
+                logger.debug(f"Parsed string to list for {hostname}")
+            except (ValueError, SyntaxError) as e:
+                logger.warning(f"Could not parse ups_devices string for {hostname}: {e}")
+
         # Normalize UPS devices to list of dicts
         if isinstance(ups_devices_raw, str):
             ups_devices = [{"name": ups_devices_raw, "description": ""}]
@@ -148,56 +171,26 @@ def load_ansible_inventory():
             f"({len(ups_devices)} UPS device(s))"
         )
 
-    INVENTORY_DATA = {"nut_servers": nut_servers}
-    logger.info(f"Loaded {len(nut_servers)} NUT servers from Ansible inventory")
-    return INVENTORY_DATA
+    return nut_servers
 
 
 async def query_nut_server(
     host: str, port: int, ups_name: str, username: str = "", password: str = ""
 ) -> Optional[Dict]:
     """
-    Query NUT server using network protocol
-
+    Query NUT server using basic network protocol
+    
     Args:
         host: NUT server hostname or IP
         port: NUT server port (usually 3493)
         ups_name: Name of the UPS device
         username: Optional username for authentication
         password: Optional password for authentication
-
+    
     Returns:
         Dict with UPS variables or None on error
     """
-    try:
-        # Try using PyNUT library if available
-        try:
-            from nut2 import PyNUTClient
-
-            client = PyNUTClient(host=host, port=port, login=username, password=password)
-
-            # Get UPS variables
-            ups_vars = client.list_vars(ups_name)
-
-            # Get UPS commands (optional)
-            try:
-                ups_commands = client.list_commands(ups_name)
-            except:
-                ups_commands = []
-
-            return {
-                "variables": ups_vars,
-                "commands": ups_commands,
-            }
-
-        except ImportError:
-            # Fallback: Implement basic NUT protocol
-            logger.warning("PyNUT (nut2) library not available, using basic protocol implementation")
-            return await query_nut_basic(host, port, ups_name, username, password)
-
-    except Exception as e:
-        logger.error(f"Error querying NUT server {host}:{port} for UPS '{ups_name}': {e}")
-        return None
+    return await query_nut_basic(host, port, ups_name, username, password)
 
 
 async def query_nut_basic(
@@ -240,16 +233,20 @@ async def query_nut_basic(
                     break
 
                 # Parse: VAR ups_name variable.name "value"
+                # Handle both quoted and unquoted formats:
+                # Standard: VAR ups_name var.name "value"
+                # Unifi:    VAR "ups_name" "var.name" value
                 if line.startswith("VAR"):
-                    parts = line.split(None, 2)
-                    if len(parts) >= 3:
-                        var_full = parts[2]
-                        # Split variable name and value
-                        if ' ' in var_full:
-                            var_name, var_value = var_full.split(' ', 1)
-                            # Remove quotes from value
-                            var_value = var_value.strip('"')
-                            variables[var_name] = var_value
+                    parts = line.split(None, 3)  # Split into max 4 parts
+                    if len(parts) >= 4:
+                        # parts[0] = "VAR"
+                        # parts[1] = ups_name (might be quoted)
+                        # parts[2] = variable name (might be quoted)
+                        # parts[3] = value (might be quoted)
+                        
+                        var_name = parts[2].strip('"')
+                        var_value = parts[3].strip('"')
+                        variables[var_name] = var_value
 
             # Logout
             writer.write(b"LOGOUT\n")
@@ -265,7 +262,7 @@ async def query_nut_basic(
         }
 
     except asyncio.TimeoutError:
-        logger.error(f"Timeout connecting to NUT server {host}:{port}")
+        logger.error(f"Basic: Timeout connecting to NUT server {host}:{port}")
         return None
     except Exception as e:
         logger.error(f"Error in basic NUT protocol query: {e}")
@@ -295,13 +292,13 @@ def parse_ups_status(status_str: str) -> List[str]:
     return statuses
 
 
-def format_ups_details(ups_name: str, ups_data: Dict, host_name: str) -> str:
+def format_ups_details(ups_name: str, ups_data: Optional[Dict], host_name: str) -> str:
     """
     Format UPS details for display
 
     Args:
         ups_name: Name of the UPS device
-        ups_data: Dict of UPS variables
+        ups_data: Dict of UPS variables or None
         host_name: Name of the host running NUT
 
     Returns:
@@ -367,83 +364,119 @@ def format_ups_details(ups_name: str, ups_data: Dict, host_name: str) -> str:
     return output
 
 
-@server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    """List available UPS monitoring tools"""
-    return [
-        types.Tool(
-            name="get_ups_status",
-            description="Get status of all UPS devices across all NUT servers",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-        types.Tool(
-            name="get_ups_details",
-            description="Get detailed information for a specific UPS device",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "host": {
-                        "type": "string",
-                        "description": "NUT server hostname (e.g., 'dell-server', 'cyber-server')",
+class UpsMCPServer:
+    """UPS MCP Server - Class-based implementation for unified mode"""
+
+    def __init__(self, ansible_inventory=None):
+        """Initialize configuration
+
+        Args:
+            ansible_inventory: Optional pre-loaded Ansible inventory dict (for unified mode)
+        """
+        # Load environment configuration (skip if in unified mode)
+        if not os.getenv("MCP_UNIFIED_MODE"):
+            load_env_file(ENV_FILE, allowed_vars=UPS_ALLOWED_VARS, strict=True)
+
+        self.ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
+        logger.info(f"[UpsMCPServer] Ansible inventory: {self.ansible_inventory_path}")
+
+        # Inventory cache for this instance
+        self.inventory_data = None
+
+    def _load_ansible_inventory(self):
+        """Load inventory for this instance (separate from global cache)"""
+        if self.inventory_data is not None:
+            return self.inventory_data
+
+        if not self.ansible_inventory_path:
+            logger.error("No Ansible inventory path provided")
+            return {"nut_servers": {}}
+
+        # Use centralized config manager
+        manager = AnsibleConfigManager(
+            inventory_path=self.ansible_inventory_path,
+            logger_obj=logger
+        )
+
+        if not manager.is_available():
+            logger.error(f"Ansible inventory not accessible at: {self.ansible_inventory_path}")
+            return {"nut_servers": {}}
+
+        # Load NUT servers group
+        nut_hosts = manager.get_group_hosts("nut_servers")
+        if not nut_hosts:
+            logger.warning("No hosts found in 'nut_servers' group")
+            return {"nut_servers": {}}
+
+        nut_servers = _build_nut_servers_dict(manager, nut_hosts)
+        
+        self.inventory_data = {"nut_servers": nut_servers}
+        return self.inventory_data
+
+    async def list_tools(self) -> list[types.Tool]:
+        """Return list of Tool objects this server provides (with ups_ prefix)"""
+        return [
+            types.Tool(
+                name="ups_get_ups_status",
+                description="Get status of all UPS devices across all NUT servers",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            types.Tool(
+                name="ups_get_ups_details",
+                description="Get detailed information for a specific UPS device",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "host": {
+                            "type": "string",
+                            "description": "NUT server hostname (e.g., 'dell-server')",
+                        },
+                        "ups_name": {
+                            "type": "string",
+                            "description": "UPS device name (optional)",
+                        },
                     },
-                    "ups_name": {
-                        "type": "string",
-                        "description": "UPS device name (optional, defaults to first UPS on host)",
-                    },
+                    "required": ["host"],
                 },
-                "required": ["host"],
-            },
-        ),
-        types.Tool(
-            name="get_battery_runtime",
-            description="Get battery runtime estimates for all UPS devices",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-        types.Tool(
-            name="list_ups_devices",
-            description="List all UPS devices configured in the inventory",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-        types.Tool(
-            name="get_power_events",
-            description="Check for recent power events (status changes from online to battery)",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-        types.Tool(
-            name="reload_inventory",
-            description="Reload Ansible inventory from disk (useful after inventory changes)",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-    ]
+            ),
+            types.Tool(
+                name="ups_get_battery_runtime",
+                description="Get battery runtime estimates for all UPS devices",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            types.Tool(
+                name="ups_list_ups_devices",
+                description="List all UPS devices configured in the inventory",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            types.Tool(
+                name="ups_get_power_events",
+                description="Check for recent power events",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            types.Tool(
+                name="ups_reload_inventory",
+                description="Reload Ansible inventory from disk",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+        ]
+
+    async def handle_tool(self, tool_name: str, arguments: dict | None) -> list[types.TextContent]:
+        """Route tool calls to appropriate handler methods"""
+        # Strip the ups_ prefix for routing
+        name = tool_name.replace("ups_", "", 1) if tool_name.startswith("ups_") else tool_name
+
+        logger.info(f"[UpsMCPServer] Tool called: {tool_name} -> {name}")
+
+        # Call the shared implementation with this instance's inventory
+        return await handle_call_tool_impl(name, arguments, self._load_ansible_inventory())
 
 
-@server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: dict | None
+async def handle_call_tool_impl(
+    name: str, arguments: dict | None, inventory: dict
 ) -> list[types.TextContent]:
-    """Handle tool calls"""
+    """Core tool execution logic that can be called by both class and module-level handlers"""
     try:
-        inventory = load_ansible_inventory()
         nut_servers = inventory.get("nut_servers", {})
 
         if name == "list_ups_devices":
@@ -470,7 +503,7 @@ async def handle_call_tool(
         elif name == "reload_inventory":
             global INVENTORY_DATA
             INVENTORY_DATA = None
-            inventory = load_ansible_inventory()
+            inventory = load_ansible_inventory_global()
             nut_servers = inventory.get("nut_servers", {})
 
             output = "=== INVENTORY RELOADED ===\n\n"
@@ -497,6 +530,10 @@ async def handle_call_tool(
             total_devices = 0
 
             for server_name, config in sorted(nut_servers.items()):
+                
+                logger.debug(f"Processing server {server_name}")
+                logger.debug(f"config['ups_devices'] = {config['ups_devices']}, type = {type(config['ups_devices'])}")
+                
                 for ups in config["ups_devices"]:
                     total_devices += 1
                     ups_name = ups.get("name", "ups")
@@ -786,10 +823,63 @@ async def handle_call_tool(
         return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
 
+# Module-level handlers for standalone mode
+@server.list_tools()
+async def handle_list_tools() -> list[types.Tool]:
+    """List available UPS monitoring tools"""
+    return [
+        types.Tool(
+            name="get_ups_status",
+            description="Get status of all UPS devices across all NUT servers",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="get_ups_details",
+            description="Get detailed information for a specific UPS device",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string", "description": "NUT server hostname"},
+                    "ups_name": {"type": "string", "description": "UPS device name (optional)"},
+                },
+                "required": ["host"],
+            },
+        ),
+        types.Tool(
+            name="get_battery_runtime",
+            description="Get battery runtime estimates for all UPS devices",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="list_ups_devices",
+            description="List all UPS devices configured in the inventory",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="get_power_events",
+            description="Check for recent power events",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="reload_inventory",
+            description="Reload Ansible inventory from disk",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+    ]
+
+
+@server.call_tool()
+async def handle_call_tool(
+    name: str, arguments: dict | None
+) -> list[types.TextContent]:
+    """Handle tool calls (module-level wrapper for standalone mode)"""
+    return await handle_call_tool_impl(name, arguments, load_ansible_inventory_global())
+
+
 async def main():
     """Main entry point"""
     # Load inventory on startup
-    inventory = load_ansible_inventory()
+    inventory = load_ansible_inventory_global()
     nut_servers = inventory.get("nut_servers", {})
     total_ups = sum(len(cfg["ups_devices"]) for cfg in nut_servers.values())
     logger.info(f"UPS Monitor MCP Server starting with {len(nut_servers)} NUT server(s), {total_ups} UPS device(s)")
@@ -800,7 +890,7 @@ async def main():
             write_stream,
             InitializationOptions(
                 server_name="ups-monitor",
-                server_version="1.0.0",
+                server_version="1.1.0",
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
                     experimental_capabilities={},

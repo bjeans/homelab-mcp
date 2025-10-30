@@ -34,6 +34,7 @@ UNIFIED_ALLOWED_VARS = COMMON_ALLOWED_ENV_VARS | {
     "LITELLM_*",
     "PIHOLE_*",
     "UNIFI_*",
+    "NUT_*",
 }
 
 # Load environment once for all servers
@@ -49,6 +50,7 @@ from ping_mcp_server import PingMCPServer
 from ollama_mcp import OllamaMCPServer
 from pihole_mcp import PiholeMCPServer
 from unifi_mcp_optimized import UnifiMCPServer
+from ups_mcp_server import UpsMCPServer
 
 # Import yaml for loading Ansible inventory
 import yaml
@@ -107,6 +109,9 @@ class UnifiedHomelabServer:
         logger.info("Initializing Unifi MCP Server...")
         self.unifi = UnifiMCPServer()  # Unifi doesn't use Ansible inventory
 
+        logger.info("Initializing UPS MCP Server...")
+        self.ups = UpsMCPServer(ansible_inventory=shared_inventory)
+
         # Register handlers
         self.setup_handlers()
 
@@ -126,6 +131,7 @@ class UnifiedHomelabServer:
             tools.extend(await self.ollama.list_tools())
             tools.extend(await self.pihole.list_tools())
             tools.extend(await self.unifi.list_tools())
+            tools.extend(await self.ups.list_tools())
 
             logger.info(f"Total tools available: {len(tools)}")
             return tools
@@ -149,6 +155,8 @@ class UnifiedHomelabServer:
                     return await self.pihole.handle_tool(name, arguments)
                 elif name.startswith("unifi_"):
                     return await self.unifi.handle_tool(name, arguments)
+                elif name.startswith("ups_"):
+                    return await self.ups.handle_tool(name, arguments)
                 else:
                     return [
                         types.TextContent(
