@@ -222,23 +222,9 @@ class UnifiedHomelabServer:
                 elif name.startswith("unifi_"):
                     return await self.unifi.handle_tool(name, arguments)
                 elif name.startswith("ups_"):
-                    # Route to UPS server - strip the prefix and call the handler
+                    # Route to UPS server - strip prefix to get the tool name
                     ups_tool_name = name[4:]  # Remove "ups_" prefix
-                    # Import and call the handler function directly
-                    try:
-                        from ups_mcp_server import handle_call_tool as ups_handle_call_tool
-                        result = await ups_handle_call_tool(ups_tool_name, arguments)
-                        # Cast result to list of TextContent
-                        if isinstance(result, list) and result and isinstance(result[0], types.TextContent):
-                            return result  # type: ignore
-                        elif isinstance(result, list):
-                            # Convert any list items to TextContent if needed
-                            return [types.TextContent(type="text", text=str(item)) for item in result]
-                        else:
-                            return [types.TextContent(type="text", text=str(result))]
-                    except Exception as ups_err:
-                        logger.error(f"Error calling UPS tool {ups_tool_name}: {ups_err}")
-                        raise
+                    return await ups_mcp_server.handle_call_tool(ups_tool_name, arguments)  # type: ignore
                 else:
                     return [
                         types.TextContent(
