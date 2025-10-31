@@ -203,17 +203,22 @@ def load_container_hosts_from_env():
     return container_hosts
 
 
-# Load container hosts on startup (module-level, but only if in standalone mode)
+# Load container hosts on startup (module-level, works for both standalone and imported mode)
 # This needs to be at module level for the @server decorators to access it
 CONTAINER_HOSTS = {}
-if __name__ == "__main__":
+
+# Always try to load hosts from Ansible/env, regardless of how the module is being used
+# This ensures both standalone mode and unified server mode work correctly
+try:
     CONTAINER_HOSTS = load_container_hosts_from_ansible()
     if not CONTAINER_HOSTS:
-        logger.error("No container hosts configured!")
-        logger.error(
+        logger.warning("No container hosts configured!")
+        logger.warning(
             "Please set ANSIBLE_INVENTORY_PATH or DOCKER_/PODMAN_*_ENDPOINT environment variables"
         )
-
+except Exception as e:
+    logger.error(f"Error loading container hosts: {e}")
+    # Don't raise, allow the module to load even if config is missing
 
 async def container_api_request(
     host: str, endpoint: str, timeout: int = 5
