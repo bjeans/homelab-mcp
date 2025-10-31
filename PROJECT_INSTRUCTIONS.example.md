@@ -7,10 +7,10 @@
 **Project Name:** Homelab MCP Servers
 **GitHub Repository:** https://github.com/bjeans/homelab-mcp
 **Documentation:** See README.md and SECURITY.md in the repository
-**Version:** 1.0.0 (Released: 2025-10-11)
+**Version:** 2.0.0 (Released: 2025-10-30)
 
 **About this project:**
-This is an open-source collection of Model Context Protocol (MCP) servers for managing homelab infrastructure through Claude Desktop. It provides real-time monitoring and control of Docker/Podman containers, Ollama AI models, Pi-hole DNS, Unifi networks, and Ansible inventory.
+This is an open-source collection of Model Context Protocol (MCP) servers for managing homelab infrastructure through Claude Desktop. It provides real-time monitoring and control of Docker/Podman containers, Ollama AI models, Pi-hole DNS, Unifi networks, UPS monitoring, and Ansible inventory with containerized deployment support.
 
 **When working on this project:**
 - If suggesting improvements or finding bugs, remember the GitHub repository location
