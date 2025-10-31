@@ -2,7 +2,7 @@
 
 This guide covers deploying the Homelab MCP servers using Docker containers.
 
-> **For Docker MCP Marketplace:** This image is marketplace-ready! Configure it entirely via environment variables with no external dependencies. See [Configuration Methods](#configuration-methods) below.
+**Version 2.0.0:** The Docker image now defaults to unified mode (all 7 servers in one container) with automatic mode detection. The image is marketplace-ready and fully configurable via environment variables with no external dependencies. See [Configuration Methods](#configuration-methods) below.
 
 ## Quick Start
 
@@ -40,10 +40,38 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Run with Docker CLI
+### Run Unified Mode (Default)
 
-#### Using Ansible Inventory
+**All 7 servers in one container - no ENABLED_SERVERS needed:**
+
 ```bash
+# Using Ansible Inventory (Recommended)
+docker run -d \
+  --name homelab-mcp \
+  --network host \
+  -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
+  --stdin \
+  --tty \
+  homelab-mcp:latest
+
+# Or using Environment Variables
+docker run -d \
+  --name homelab-mcp \
+  --network host \
+  -e DOCKER_SERVER1_ENDPOINT=192.168.1.100:2375 \
+  -e OLLAMA_SERVER1_ENDPOINT=192.168.1.100:11434 \
+  -e PIHOLE_SERVER1_ENDPOINT=192.168.1.100:8053 \
+  --stdin \
+  --tty \
+  homelab-mcp:latest
+```
+
+### Run Legacy Mode (Individual Servers)
+
+**For backward compatibility, run specific servers with ENABLED_SERVERS:**
+
+```bash
+# Using Ansible Inventory
 docker run -d \
   --name homelab-mcp-docker \
   --network host \
@@ -53,10 +81,8 @@ docker run -d \
   --stdin \
   --tty \
   homelab-mcp:latest
-```
 
-#### Using Environment Variables
-```bash
+# Using Environment Variables
 docker run -d \
   --name homelab-mcp-docker \
   --network host \
@@ -72,7 +98,7 @@ docker run -d \
 
 ### Configuration Methods
 
-The container supports two configuration methods:
+The container supports two configuration methods that work with both unified and legacy modes:
 
 #### Method 1: Ansible Inventory (Recommended)
 
@@ -89,6 +115,7 @@ environment:
 - Supports complex host groupings
 - Better for multi-host environments
 - Single source of truth
+- Works with unified and legacy modes
 
 #### Method 2: Environment Variables
 
@@ -97,28 +124,37 @@ Pass configuration via environment variables:
 environment:
   - DOCKER_SERVER1_ENDPOINT=192.168.1.100:2375
   - DOCKER_SERVER2_ENDPOINT=192.168.1.101:2375
+  - OLLAMA_SERVER1_ENDPOINT=192.168.1.100:11434
 ```
 
 **Advantages:**
+- Marketplace-ready (no external files)
 - Simple for basic setups
 - No additional files needed
-- Easy to test
+- Easy to test and debug
+- Works with unified and legacy modes
 
-### Available Servers
+### Deployment Modes
 
-The `ENABLED_SERVERS` environment variable controls which MCP server runs:
-
-- `docker` - Docker/Podman container management
-- `ping` - Network ping utilities
-
-**Important:** Only ONE server runs per container (MCP design pattern).
+**Unified Mode (Default):**
 ```bash
-# Run Docker MCP server
--e ENABLED_SERVERS=docker
-
-# Run Ping MCP server
--e ENABLED_SERVERS=ping
+# No ENABLED_SERVERS needed - all 7 servers run in one container
+docker run -d --name homelab-mcp --network host homelab-mcp:latest
 ```
+
+Available tools: `ansible_*`, `docker_*`, `ping_*`, `ollama_*`, `pihole_*`, `unifi_*`, `ups_*`
+
+**Legacy Mode (Individual Servers):**
+```bash
+# Set ENABLED_SERVERS for specific server
+-e ENABLED_SERVERS=docker,ping,ollama,pihole,unifi,ups,ansible
+```
+
+Valid servers: `docker`, `ping`, `ollama`, `pihole`, `unifi`, `ups`, `ansible`
+
+**Note:** `registry` (MCP Registry Inspector) is NOT included in Docker image - run directly only: `python mcp_registry_inspector.py`
+
+**Important:** Only set ENABLED_SERVERS if you want legacy mode. Default (no variable) runs unified mode.
 
 ## Network Configuration
 
@@ -332,29 +368,38 @@ docker buildx build \
 
 ## Testing
 
-### Quick Verification Test
+### Quick Verification Test - Unified Mode (Recommended)
 
-Test the Docker image quickly with these commands:
+Test the Docker image quickly with unified mode (default):
 
-**Test Ping Server:**
+**Test Unified Server:**
 
 ```bash
-# PowerShell
+# PowerShell (Unified - all servers)
 docker run --rm --network host `
-    -e ENABLED_SERVERS=ping `
-    -e ANSIBLE_INVENTORY_PATH=/config/ansible_hosts.yml `
     -v "$PWD/ansible_hosts.yml:/config/ansible_hosts.yml:ro" `
     homelab-mcp:latest
 
-# Bash
+# Bash (Unified - all servers)
 docker run --rm --network host \
-    -e ENABLED_SERVERS=ping \
-    -e ANSIBLE_INVENTORY_PATH=/config/ansible_hosts.yml \
     -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
     homelab-mcp:latest
 ```
 
-**Test Docker Server:**
+**Expected Output:**
+
+- Server starts with "Starting Homelab MCP..." 
+- Unified mode message: "Mode: UNIFIED (all servers in one process)"
+- Available tools displayed: `ansible_*`, `docker_*`, `ping_*`, `ollama_*`, `pihole_*`, `unifi_*`, `ups_*`
+- Ansible inventory loaded from `/config/ansible_hosts.yml`
+- Hosts/endpoints are discovered
+- No error messages
+
+### Legacy Mode Testing (Individual Servers)
+
+For backward compatibility, test individual servers with ENABLED_SERVERS:
+
+**Test Docker Server (Legacy):**
 
 ```bash
 # PowerShell
@@ -372,24 +417,72 @@ docker run --rm --network host \
     homelab-mcp:latest
 ```
 
-**Expected Output:**
+**Test Ping Server (Legacy):**
 
-- Server starts with "Starting Homelab MCP Servers..."
-- Ansible inventory is loaded from `/config/ansible_hosts.yml`
-- Hosts/endpoints are discovered (e.g., "Found Docker host:", "Loaded X hosts")
+```bash
+# Bash
+docker run --rm --network host \
+    -e ENABLED_SERVERS=ping \
+    -e ANSIBLE_INVENTORY_PATH=/config/ansible_hosts.yml \
+    -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
+    homelab-mcp:latest
+```
+
+**Expected Output (Legacy Mode):**
+
+- Server starts with "Starting Homelab MCP..."
+- Legacy mode message: "Mode: LEGACY (individual server)"
+- Single server tools displayed (no prefix: `get_docker_containers`, `ping_host`, etc.)
 - No error messages
 
 ### Docker Compose Testing
 
-Start all services and view logs:
+Start services using docker-compose and view logs:
 
 ```bash
 docker-compose up -d
+
+# View unified server logs (default)
+docker-compose logs -f homelab-mcp
+
+# Or view legacy mode logs (if using individual servers)
 docker-compose logs -f homelab-mcp-docker
 docker-compose logs -f homelab-mcp-ping
 ```
 
 ### Claude Desktop Integration Testing
+
+**Unified Mode (Recommended):**
+
+1. Start container with Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+2. Update Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "homelab-unified": {
+      "command": "docker",
+      "args": ["exec", "-i", "homelab-mcp", "python", "homelab_unified_mcp.py"]
+    }
+  }
+}
+```
+
+3. Restart Claude Desktop completely
+
+4. Test in Claude:
+   - Ask: "What tools are available?"
+   - Ask: "Can you list the Docker containers across all servers?"
+   - Ask: "What Ollama models are available?"
+   - Ask: "Get Pi-hole statistics"
+   - Ask: "Ping example.com"
+
+**Legacy Mode (Individual Servers - For Testing):**
 
 1. Start containers with Docker Compose:
 
@@ -397,16 +490,16 @@ docker-compose logs -f homelab-mcp-ping
 docker-compose up -d
 ```
 
-1. Update Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`):
+2. Update Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
-    "homelab-mcp-docker": {
+    "homelab-docker": {
       "command": "docker",
       "args": ["exec", "-i", "homelab-mcp-docker", "python", "docker_mcp_podman.py"]
     },
-    "homelab-mcp-ping": {
+    "homelab-ping": {
       "command": "docker",
       "args": ["exec", "-i", "homelab-mcp-ping", "python", "ping_mcp_server.py"]
     }
@@ -414,12 +507,12 @@ docker-compose up -d
 }
 ```
 
-1. Restart Claude Desktop completely
+3. Restart Claude Desktop completely
 
-1. Test in Claude:
-   - Ask: "What tools are available from homelab-mcp-docker?"
+4. Test in Claude:
+   - Ask: "What tools are available from homelab-docker?"
    - Ask: "Can you list the Docker containers on my servers?"
-   - Ask: "Ping 192.168.1.1 for me"
+   - Ask: "Ping 8.8.8.8"
 
 ## Health Checks
 
@@ -500,10 +593,11 @@ COPY *.py .
 
 ## Next Steps
 
-- Add more MCP servers (Ollama, Pi-hole, Unifi)
-- Publish to Docker Hub
+- Publish to Docker Hub marketplace
 - Submit to MCP Registry
-- Add automated testing
+- Add Grafana dashboard integration
+- Add Home Assistant integration
+- Expand Kubernetes deployment support
 
 ## Support
 

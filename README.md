@@ -88,11 +88,11 @@ This README covers installation and basic setup. The project instructions provid
 
 ## 🎯 Deployment Options
 
-**Version 2.0+** offers two deployment modes:
+**Version 2.0.0+** offers two deployment modes:
 
 ### Unified Server (Recommended for New Deployments)
 
-Run all MCP servers in a single process with namespaced tools:
+Run all MCP servers in a single process with namespaced tools. This is the recommended approach for new installations and Docker deployments:
 
 ```json
 {
@@ -108,13 +108,15 @@ Run all MCP servers in a single process with namespaced tools:
 **Advantages:**
 - ✅ Single configuration entry
 - ✅ One Python process for all servers
-- ✅ Better Docker deployment
+- ✅ Better Docker deployment with unified entrypoint
 - ✅ Cleaner logs (no duplicate warnings)
 - ✅ All tools namespaced (e.g., `docker_get_containers`, `ping_ping_host`)
+- ✅ Built-in health checks (Docker)
+- ✅ Production-ready containerization
 
 ### Individual Servers (Legacy, Fully Supported)
 
-Run each MCP server as a separate process:
+Run each MCP server as a separate process. This mode remains fully supported for backward compatibility:
 
 ```json
 {
@@ -306,11 +308,11 @@ Separate entry for each server:
 
 ## 🐳 Docker Deployment (Alternative)
 
-Run the MCP servers in Docker containers for easier distribution and isolation.
+Run the MCP servers in Docker containers for easier distribution, isolation, and production deployment.
 
-### Quick Start with Docker
+### Quick Start with Docker (Unified Mode - Recommended)
 
-**Unified Mode (Recommended)** - All servers in one container:
+**All servers in one container using unified mode:**
 
 ```bash
 # Clone and navigate to repository
@@ -320,7 +322,7 @@ cd homelab-mcp
 # Build the image
 docker build -t homelab-mcp:latest .
 
-# Run with Docker Compose (recommended)
+# Run with Docker Compose (recommended for production)
 docker-compose up -d
 
 # Or run unified server directly
@@ -331,7 +333,47 @@ docker run -d \
   homelab-mcp:latest
 ```
 
-**Legacy Mode** - Individual servers (set `ENABLED_SERVERS`):
+### Docker Features
+
+**2.0.0 Docker Improvements:**
+- ✅ Unified MCP server as default entrypoint (all 7 servers in one container)
+- ✅ Automatic unified mode detection (no ENABLED_SERVERS needed)
+- ✅ Built-in health checks (HEALTHCHECK configured)
+- ✅ Non-root user security (mcpuser UID 1000)
+- ✅ Proper signal handling and clean shutdown
+- ✅ Optimized layer caching for faster rebuilds
+- ✅ System dependencies included (iputils-ping for cross-platform support)
+
+### Configuration Methods
+
+**Method 1: Ansible Inventory (Recommended)**
+
+```bash
+# Create your ansible_hosts.yml with infrastructure details
+# Then mount as volume:
+
+docker run -d \
+  --name homelab-mcp \
+  --network host \
+  -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
+  homelab-mcp:latest
+```
+
+**Method 2: Environment Variables (Marketplace Ready)**
+
+```bash
+docker run -d \
+  --name homelab-mcp \
+  --network host \
+  -e DOCKER_SERVER1_ENDPOINT=192.168.1.100:2375 \
+  -e DOCKER_SERVER1_NAME=Local-Docker \
+  -e OLLAMA_SERVER1_ENDPOINT=192.168.1.100:11434 \
+  homelab-mcp:latest
+```
+
+### Legacy Mode: Individual Servers (Docker)
+
+For backward compatibility, you can still run individual servers by setting `ENABLED_SERVERS`:
 
 ```bash
 docker run -d \
@@ -345,16 +387,19 @@ docker run -d \
 ### Available Servers
 
 **Unified Mode (Default):**
-- ✅ All 5 servers in one process: Docker, Ping, Ollama, Pi-hole, Unifi
-- ✅ Namespaced tools (e.g., `docker_get_containers`)
+- ✅ All 7 servers in one process: Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS
+- ✅ Namespaced tools (e.g., `docker_get_containers`, `ups_get_ups_status`)
 - ✅ Single configuration entry
+- ✅ Built-in health checks
 
 **Legacy Mode (Set `ENABLED_SERVERS`):**
+- ✅ `ansible` - Ansible inventory queries
 - ✅ `docker` - Docker/Podman container management
 - ✅ `ping` - Network ping utilities
 - ✅ `ollama` - Ollama AI model management
 - ✅ `pihole` - Pi-hole DNS statistics
 - ✅ `unifi` - Unifi network device monitoring
+- ✅ `ups` - UPS/NUT power monitoring
 
 ### Docker Configuration
 
@@ -396,7 +441,7 @@ See [DOCKER.md](DOCKER.md) for comprehensive Docker deployment guide including:
     },
     "homelab-ping": {
       "command": "docker",
-      "args": ["exec", "-i", "homelab-mcp-ping", "python", "ping_mcp_server.py"]
+      "args": ["exec", "-i", "homelab-mcp", "python", "ping_mcp_server.py"]
     }
   }
 }
@@ -409,18 +454,15 @@ See [DOCKER.md](DOCKER.md) for comprehensive Docker deployment guide including:
 **Quick verification test (using environment variables - marketplace ready):**
 
 ```bash
-# Test Ping Server
+# Test Unified Server
 docker run --rm --network host \
-    -e ENABLED_SERVERS=ping \
-    -e PING_TARGET1=8.8.8.8 \
-    -e PING_TARGET1_NAME=Google-DNS \
+    -e DOCKER_SERVER1_ENDPOINT=localhost:2375 \
+    -e OLLAMA_SERVER1_ENDPOINT=localhost:11434 \
     homelab-mcp:latest
 
-# Test Docker Server
+# Test Individual Server (legacy)
 docker run --rm --network host \
-    -e ENABLED_SERVERS=docker \
-    -e DOCKER_SERVER1_ENDPOINT=localhost:2375 \
-    -e DOCKER_SERVER1_NAME=Local-Docker \
+    -e ENABLED_SERVERS=ping \
     homelab-mcp:latest
 ```
 
@@ -431,7 +473,7 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-For comprehensive testing and configuration options, see [DOCKER.md - Testing Section](DOCKER.md#testing).
+For comprehensive Docker deployment guide, see [DOCKER.md](DOCKER.md).
 
 
 ## 📦 Available MCP Servers
@@ -439,6 +481,8 @@ For comprehensive testing and configuration options, see [DOCKER.md - Testing Se
 ### MCP Registry Inspector
 
 Provides introspection into your MCP development environment.
+
+**⚠️ Note:** MCP Registry Inspector is NOT included in Docker image - run directly on your host machine only.
 
 **Tools:**
 

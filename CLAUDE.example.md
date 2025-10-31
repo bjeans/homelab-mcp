@@ -208,5 +208,5 @@ grep -r "password\|secret\|key" . --exclude-dir=.git --exclude-dir=__pycache__
 - Always restart Claude Desktop after code changes
 - Always run pre_publish_check.py before pushing
 
-**Template Version:** 1.1.0  
+**Template Version:** 2.0.0  
 **For production deployment, customize this guide with YOUR details**
