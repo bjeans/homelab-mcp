@@ -38,7 +38,6 @@ homelab-mcp/
 │   ├── .env.example                   # Configuration template (gitignored)
 │   ├── ansible_hosts.example.yml      # Ansible inventory example (gitignored)
 │   ├── PROJECT_INSTRUCTIONS.example.md # AI assistant guide template
-│   ├── CLAUDE.example.md              # This guide template
 │   ├── claude_desktop_config.json     # Claude Desktop config (gitignored)
 │   └── ansible_config_manager.py      # Centralized config loader
 │

@@ -422,8 +422,7 @@ def scan_markdown_files():
         'README.md',
         'SECURITY.md',
         'PROJECT_INSTRUCTIONS.example.md',
-        'ansible_hosts.example.yml',
-        'CLAUDE.example.md'
+        'ansible_hosts.example.yml'
     ]
     
     for filename in md_files:
