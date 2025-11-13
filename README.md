@@ -31,33 +31,31 @@ This project includes several documentation files for different audiences:
 - **[README.md](README.md)** (this file) - Installation, setup, and usage guide
 - **[MIGRATION.md](MIGRATION.md)** - Migration guide for v2.0 unified server
 - **[PROJECT_INSTRUCTIONS.md](PROJECT_INSTRUCTIONS.example.md)** - Copy into Claude project instructions for AI context
-- **[CLAUDE.md](CLAUDE.example.md)** - Developer guide for AI assistants and contributors
+- **[CLAUDE.md](CLAUDE.md)** - Developer guide for AI assistants and contributors
 - **[SECURITY.md](SECURITY.md)** - Security policies and best practices
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute to this project
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 
 **👥 For End Users:** Follow this README + copy PROJECT_INSTRUCTIONS.md to Claude
 **🔄 Migrating from v1.x?** See [MIGRATION.md](MIGRATION.md) for unified server migration
-**🤖 For AI Assistants:** Read [CLAUDE.md](CLAUDE.example.md) for complete development context
-**🔧 For Contributors:** Start with CONTRIBUTING.md and [CLAUDE.md](CLAUDE.example.md)
+**🤖 For AI Assistants:** Read [CLAUDE.md](CLAUDE.md) for complete development context
+**🔧 For Contributors:** Start with CONTRIBUTING.md and [CLAUDE.md](CLAUDE.md)
 
 ## �📖 Important: Configure Claude Project Instructions
 
 After setting up the MCP servers, **create your personalized project instructions**:
 
-1. **Copy the example templates:**
+1. **Copy the example template:**
 
    ```bash
    # Windows
    copy PROJECT_INSTRUCTIONS.example.md PROJECT_INSTRUCTIONS.md
-   copy CLAUDE.example.md CLAUDE.md
-   
+
    # Linux/Mac
    cp PROJECT_INSTRUCTIONS.example.md PROJECT_INSTRUCTIONS.md
-   cp CLAUDE.example.md CLAUDE.md
    ```
 
-2. **Edit both files** with your actual infrastructure details:
+2. **Edit the file** with your actual infrastructure details:
 
    **PROJECT_INSTRUCTIONS.md** (for Claude Desktop project instructions):
    - Replace example IP addresses with your real network addresses
@@ -65,7 +63,7 @@ After setting up the MCP servers, **create your personalized project instruction
    - Customize with your specific services and configurations
    - **Keep this file private** - it contains your network topology
 
-   **CLAUDE.md** (for AI development work - contributors only):
+   **CLAUDE_CUSTOM.md** (for AI development work - contributors only):
    - Update repository URLs with your actual GitHub repository
    - Add your Notion workspace URLs if using task management
    - Customize infrastructure references
@@ -203,17 +201,17 @@ cp PROJECT_INSTRUCTIONS.example.md PROJECT_INSTRUCTIONS.md
 
 Customize with your network topology and servers.
 
-**AI development guide (for contributors):**
+**AI development guide customizations (optional):**
 
 ```bash
 # Windows
-copy CLAUDE.example.md CLAUDE.md
+copy CLAUDE_CUSTOM.example.md CLAUDE_CUSTOM.md
 
 # Linux/Mac
-cp CLAUDE.example.md CLAUDE.md
+cp CLAUDE_CUSTOM.example.md CLAUDE_CUSTOM.md
 ```
 
-Update with your repository URLs, Notion workspace, and infrastructure details.
+Customize with your actual server names and infrastructure details. This file is gitignored and allows Claude to understand your specific homelab setup. See `CLAUDE.md` for more information about local customizations.
 
 ### 4. Install Python dependencies
 
@@ -1024,7 +1022,7 @@ Core dependencies:
 
 ## 🛠️ Development
 
-**📖 First time contributing?** Read [CLAUDE.md](CLAUDE.example.md) for complete development guidance including architecture patterns, security requirements, and AI assistant workflows.
+**📖 First time contributing?** Read [CLAUDE.md](CLAUDE.md) for complete development guidance including architecture patterns, security requirements, and AI assistant workflows.
 
 ### Getting Started
 
@@ -1092,7 +1090,8 @@ Homelab-MCP/
 ├── .gitignore               # Excludes sensitive files
 ├── SECURITY.md              # Security best practices
 ├── README.md                # This file
-├── CLAUDE.example.md        # Example AI assistant guide (copy to CLAUDE.md)
+├── CLAUDE_CUSTOM.example.md # Example for custom Claude instructions
+├── CLAUDE.md                # Public Claude AI assistant guide
 ├── CONTRIBUTING.md          # Contribution guidelines
 ├── CHANGELOG.md             # Version history
 ├── requirements.txt         # Python dependencies
@@ -1278,7 +1277,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for det
 
 ### For AI Assistants & Developers
 
-**📖 Read [CLAUDE.md](CLAUDE.example.md) first** - This file contains:
+**📖 Read [CLAUDE.md](CLAUDE.md) first** - This file contains:
 
 - Complete project architecture and development patterns
 - Security requirements and common pitfalls to avoid

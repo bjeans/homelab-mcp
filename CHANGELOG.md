@@ -71,6 +71,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **CLAUDE_CUSTOM.md:** New gitignored file for homelab-specific customizations
+- **CLAUDE_CUSTOM.example.md:** Detailed template for local Claude customizations
+- **Local Customizations Section:** Added to CLAUDE.md explaining the customization system
+
+### Changed
+- **CLAUDE.md:** Now public-ready with generalized examples (removed Dell-Server, HL16 references)
+- **.gitignore:** Updated to exclude CLAUDE_CUSTOM.md instead of CLAUDE.md
+- **README.md:** Updated setup instructions for CLAUDE_CUSTOM.md
+- **SECURITY.md:** Added guidance for Claude customization files
+
+### Improved
+- Separation of public documentation from homelab-specific details
+- Claude can now access project documentation on web and GitHub
+- Better security by keeping infrastructure details in separate gitignored file
+
 ### Planned
 - Additional MCP servers (suggestions welcome!)
 - Advanced analytics and reporting features
