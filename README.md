@@ -1092,7 +1092,8 @@ Homelab-MCP/
 ├── .gitignore               # Excludes sensitive files
 ├── SECURITY.md              # Security best practices
 ├── README.md                # This file
-├── CLAUDE.example.md        # Example AI assistant guide (copy to CLAUDE.md)
+├── CLAUDE_CUSTOM.example.md # Example for custom Claude instructions
+├── CLAUDE.md                # Public Claude AI assistant guide
 ├── CONTRIBUTING.md          # Contribution guidelines
 ├── CHANGELOG.md             # Version history
 ├── requirements.txt         # Python dependencies
