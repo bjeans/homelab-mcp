@@ -31,15 +31,15 @@ This project includes several documentation files for different audiences:
 - **[README.md](README.md)** (this file) - Installation, setup, and usage guide
 - **[MIGRATION.md](MIGRATION.md)** - Migration guide for v2.0 unified server
 - **[PROJECT_INSTRUCTIONS.md](PROJECT_INSTRUCTIONS.example.md)** - Copy into Claude project instructions for AI context
-- **[CLAUDE.md](CLAUDE.example.md)** - Developer guide for AI assistants and contributors
+- **[CLAUDE.md](CLAUDE.md)** - Developer guide for AI assistants and contributors
 - **[SECURITY.md](SECURITY.md)** - Security policies and best practices
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute to this project
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 
 **👥 For End Users:** Follow this README + copy PROJECT_INSTRUCTIONS.md to Claude
 **🔄 Migrating from v1.x?** See [MIGRATION.md](MIGRATION.md) for unified server migration
-**🤖 For AI Assistants:** Read [CLAUDE.md](CLAUDE.example.md) for complete development context
-**🔧 For Contributors:** Start with CONTRIBUTING.md and [CLAUDE.md](CLAUDE.example.md)
+**🤖 For AI Assistants:** Read [CLAUDE.md](CLAUDE.md) for complete development context
+**🔧 For Contributors:** Start with CONTRIBUTING.md and [CLAUDE.md](CLAUDE.md)
 
 ## �📖 Important: Configure Claude Project Instructions
 
