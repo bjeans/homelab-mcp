@@ -1278,7 +1278,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for det
 
 ### For AI Assistants & Developers
 
-**📖 Read [CLAUDE.md](CLAUDE.example.md) first** - This file contains:
+**📖 Read [CLAUDE.md](CLAUDE.md) first** - This file contains:
 
 - Complete project architecture and development patterns
 - Security requirements and common pitfalls to avoid
