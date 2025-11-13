@@ -45,19 +45,17 @@ This project includes several documentation files for different audiences:
 
 After setting up the MCP servers, **create your personalized project instructions**:
 
-1. **Copy the example templates:**
+1. **Copy the example template:**
 
    ```bash
    # Windows
    copy PROJECT_INSTRUCTIONS.example.md PROJECT_INSTRUCTIONS.md
-   copy CLAUDE.example.md CLAUDE.md
-   
+
    # Linux/Mac
    cp PROJECT_INSTRUCTIONS.example.md PROJECT_INSTRUCTIONS.md
-   cp CLAUDE.example.md CLAUDE.md
    ```
 
-2. **Edit both files** with your actual infrastructure details:
+2. **Edit the file** with your actual infrastructure details:
 
    **PROJECT_INSTRUCTIONS.md** (for Claude Desktop project instructions):
    - Replace example IP addresses with your real network addresses

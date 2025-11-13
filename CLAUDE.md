@@ -616,26 +616,6 @@ python install_git_hook.py
 - Test both standalone and unified modes
 - Restart Claude Desktop after code changes
 
-## Red Flags to Watch For
-
-⚠️ **Never do these:**
-
-- Hardcoding IPs, hostnames, or credentials
-- Exposing API keys or tokens in logs
-- Committing .env or other config files
-- Using real infrastructure details in examples
-- Skipping error handling in network calls
-- Assuming services are always available
-
-✅ **Always do these:**
-
-- Use environment variables for all config
-- Validate inputs before API calls
-- Handle network timeouts gracefully
-- Return structured JSON responses
-- Log errors to stderr for debugging
-- Run pre_publish_check.py before commits
-
 ## Working with Issues and PRs
 
 ### Good Issue Reports Include
