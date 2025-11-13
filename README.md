@@ -1024,7 +1024,7 @@ Core dependencies:
 
 ## 🛠️ Development
 
-**📖 First time contributing?** Read [CLAUDE.md](CLAUDE.example.md) for complete development guidance including architecture patterns, security requirements, and AI assistant workflows.
+**📖 First time contributing?** Read [CLAUDE.md](CLAUDE.md) for complete development guidance including architecture patterns, security requirements, and AI assistant workflows.
 
 ### Getting Started
 
