@@ -63,7 +63,7 @@ After setting up the MCP servers, **create your personalized project instruction
    - Customize with your specific services and configurations
    - **Keep this file private** - it contains your network topology
 
-   **CLAUDE.md** (for AI development work - contributors only):
+   **CLAUDE_CUSTOM.md** (for AI development work - contributors only):
    - Update repository URLs with your actual GitHub repository
    - Add your Notion workspace URLs if using task management
    - Customize infrastructure references
