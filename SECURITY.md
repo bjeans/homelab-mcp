@@ -26,6 +26,14 @@ This project provides MCP (Model Context Protocol) servers for managing homelab 
 - Use `PROJECT_INSTRUCTIONS.example.md` as a template
 - Customize with your actual infrastructure only in your local environment
 
+#### Claude Customizations
+- **NEVER commit `CLAUDE_CUSTOM.md`** with real infrastructure details
+- Use `CLAUDE_CUSTOM.example.md` as a template
+- This file allows Claude to understand your specific homelab setup
+- Include server names and patterns, but **NOT credentials** (use `.env` for secrets)
+- File is gitignored by default to prevent accidental commits
+- See `CLAUDE.md` section on "Local Customizations" for usage details
+
 ### Network Security
 
 #### Docker/Podman APIs

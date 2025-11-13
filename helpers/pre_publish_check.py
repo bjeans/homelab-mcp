@@ -191,7 +191,7 @@ def check_sensitive_files():
         '.env',
         'PROJECT_INSTRUCTIONS.md',
         'ansible_hosts.yml',
-        'CLAUDE.md'
+        'CLAUDE_CUSTOM.md'
     ]
     
     for filename in required_ignored:
@@ -206,7 +206,7 @@ def check_sensitive_files():
         ('.env', '.env should exist but not be committed'),
         ('PROJECT_INSTRUCTIONS.md', 'Your customized instructions (not the .example)'),
         ('ansible_hosts.yml', 'Your real inventory (not the .example)'),
-        ('CLAUDE.md', 'Your customized Claude guide (not the .example)')
+        ('CLAUDE_CUSTOM.md', 'Your customized Claude guide with homelab-specific details')
     ]
     
     print()
@@ -225,7 +225,7 @@ def check_sensitive_files():
         '.env.example',
         'PROJECT_INSTRUCTIONS.example.md',
         'ansible_hosts.example.yml',
-        'CLAUDE.example.md'
+        'CLAUDE_CUSTOM.example.md'
     ]
     
     for filename in example_files:
@@ -250,7 +250,8 @@ def check_documentation_files():
         'requirements.txt': 'Python dependencies',
         'PROJECT_INSTRUCTIONS.example.md': 'Claude instructions template',
         'ansible_hosts.example.yml': 'Ansible inventory template',
-        'CLAUDE.example.md': 'Claude AI development guide template'
+        'CLAUDE.md': 'Claude AI development guide (public)',
+        'CLAUDE_CUSTOM.example.md': 'Claude customization template'
     }
     
     for filename, description in required_docs.items():
@@ -304,59 +305,110 @@ def scan_python_files():
     
     return len(issues) == 0
 
-def check_claude_md():
-    """Special check for CLAUDE.md if it exists (should be gitignored)"""
-    print_header("Checking CLAUDE.md for Private Information")
-    
+def check_claude_custom_md():
+    """Special check for CLAUDE_CUSTOM.md if it exists (should be gitignored)"""
+    print_header("Checking CLAUDE_CUSTOM.md for Private Information")
+
     issues = []
-    claude_md = script_dir / 'CLAUDE.md'
-    
-    if not claude_md.exists():
-        print_success("CLAUDE.md does not exist (good for public repo)")
+    claude_custom_md = script_dir / 'CLAUDE_CUSTOM.md'
+
+    if not claude_custom_md.exists():
+        print_success("CLAUDE_CUSTOM.md does not exist (good for public repo)")
         return True
-    
+
     # If it exists, check if it's gitignored
     gitignore_path = script_dir / '.gitignore'
     if gitignore_path.exists():
         with open(gitignore_path, 'r') as f:
             gitignore_content = f.read()
-        
-        if 'CLAUDE.md' not in gitignore_content:
-            print_error("CLAUDE.md exists but is NOT in .gitignore!")
-            issues.append("CLAUDE.md must be added to .gitignore")
+
+        if 'CLAUDE_CUSTOM.md' not in gitignore_content:
+            print_error("CLAUDE_CUSTOM.md exists but is NOT in .gitignore!")
+            issues.append("CLAUDE_CUSTOM.md must be added to .gitignore")
         else:
-            print_success("CLAUDE.md is properly gitignored")
-    
-    # If CLAUDE.md exists, scan it for private information
+            print_success("CLAUDE_CUSTOM.md is properly gitignored")
+
+    # If CLAUDE_CUSTOM.md exists, scan it for private information
     try:
-        with open(claude_md, 'r', encoding='utf-8') as f:
+        with open(claude_custom_md, 'r', encoding='utf-8') as f:
             content = f.read()
-        
+
         # Check for real URLs
         github_urls = re.findall(r'https://github\.com/([a-zA-Z0-9_-]+)', content)
         notion_urls = re.findall(r'https://www\.notion\.so/([a-zA-Z0-9]{32})', content)
-        
+
         if github_urls:
             real_github = [url for url in github_urls if url not in ['your-username', 'example-user']]
             if real_github:
-                print_warning(f"CLAUDE.md contains real GitHub URLs: {', '.join(real_github)}")
-        
+                print_warning(f"CLAUDE_CUSTOM.md contains real GitHub URLs: {', '.join(real_github)}")
+
         if notion_urls:
-            print_warning(f"CLAUDE.md contains Notion URLs (likely private)")
-        
+            print_warning(f"CLAUDE_CUSTOM.md contains Notion URLs (likely private)")
+
         # Check for private IPs
-        ips = scan_for_ips(content, 'CLAUDE.md')
+        ips = scan_for_ips(content, 'CLAUDE_CUSTOM.md')
         if ips:
-            print_warning(f"CLAUDE.md contains IP addresses: {', '.join(ips)}")
-        
+            print_warning(f"CLAUDE_CUSTOM.md contains IP addresses: {', '.join(ips)}")
+
         # Check for other sensitive data
-        sensitive = scan_for_api_keys(content, 'CLAUDE.md')
+        sensitive = scan_for_api_keys(content, 'CLAUDE_CUSTOM.md')
         if sensitive:
-            print_warning(f"CLAUDE.md may contain sensitive information")
-            
+            print_warning(f"CLAUDE_CUSTOM.md may contain sensitive information")
+
+    except Exception as e:
+        print_error(f"Error scanning CLAUDE_CUSTOM.md: {e}")
+
+    return len(issues) == 0
+
+def check_claude_md_public():
+    """Check that CLAUDE.md is public-ready (no homelab-specific details)"""
+    print_header("Checking CLAUDE.md is Public-Ready")
+
+    issues = []
+    claude_md = script_dir / 'CLAUDE.md'
+
+    if not claude_md.exists():
+        print_error("CLAUDE.md does not exist (should be committed to public repo)")
+        return False
+
+    print_success("CLAUDE.md exists")
+
+    # Scan for common homelab-specific patterns
+    try:
+        with open(claude_md, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check for specific server names that shouldn't be in public version
+        homelab_patterns = [
+            (r'\bDell-Server\b', 'Dell-Server'),
+            (r'\bHL16\b', 'HL16'),
+            (r'\bServer-01\b', 'Server-01'),
+        ]
+
+        for pattern, name in homelab_patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                print_error(f"CLAUDE.md contains homelab-specific reference: {name}")
+                issues.append(f"Found {name} in CLAUDE.md")
+
+        # Check for private IPs (should only have example IPs)
+        ips = scan_for_ips(content, 'CLAUDE.md')
+        suspicious_ips = [ip for ip in ips if not (
+            ip.startswith('192.168.1.') or
+            ip.startswith('10.0.1.') or
+            ip.startswith('192.0.2.')  # RFC 5737 documentation range
+        )]
+
+        if suspicious_ips:
+            print_error(f"CLAUDE.md contains non-example IPs: {', '.join(suspicious_ips)}")
+            issues.append("CLAUDE.md contains real IP addresses")
+
+        if not issues:
+            print_success("CLAUDE.md appears public-ready (no homelab-specific details found)")
+
     except Exception as e:
         print_error(f"Error scanning CLAUDE.md: {e}")
-    
+        return False
+
     return len(issues) == 0
 
 def scan_markdown_files():
@@ -436,9 +488,9 @@ def scan_for_real_infrastructure(inventory_data: Optional[Dict[str, Set[str]]]):
     files_to_check.extend([f for f in script_dir.glob('*.py') 
                           if f.name != 'pre_publish_check.py'])
     
-    # Markdown files (all public ones - exclude gitignored CLAUDE.md and PROJECT_INSTRUCTIONS.md)
+    # Markdown files (all public ones - exclude gitignored CLAUDE_CUSTOM.md and PROJECT_INSTRUCTIONS.md)
     all_md_files = script_dir.glob('*.md')
-    gitignored_md = {'CLAUDE.md', 'PROJECT_INSTRUCTIONS.md'}
+    gitignored_md = {'CLAUDE_CUSTOM.md', 'PROJECT_INSTRUCTIONS.md'}
     for md_file in all_md_files:
         if md_file.name not in gitignored_md:
             files_to_check.append(md_file)
@@ -529,8 +581,9 @@ def final_reminders():
         "Ensure ansible_hosts.yml is NOT in git history (if you have one)",
         "Test with a fresh clone in a new directory",
         "Verify .gitignore is working (git status should not show sensitive files)",
-        "Double-check that PROJECT_INSTRUCTIONS.md and CLAUDE.md are gitignored",
-        "Verify CLAUDE.example.md exists and contains placeholder data only",
+        "Double-check that PROJECT_INSTRUCTIONS.md and CLAUDE_CUSTOM.md are gitignored",
+        "Verify CLAUDE.md is public-ready (no homelab-specific details)",
+        "Verify CLAUDE_CUSTOM.example.md exists and contains placeholder data only",
         "Context-aware check scanned for YOUR real IPs/hostnames (if inventory found)",
         "Review all commits for sensitive data before pushing",
         "Consider using 'git secrets' or similar tools",
@@ -562,13 +615,16 @@ def main():
     # Run checks
     if not check_sensitive_files():
         all_passed = False
-    
+
     if not check_documentation_files():
         all_passed = False
-    
-    if not check_claude_md():
+
+    if not check_claude_custom_md():
         all_passed = False
-    
+
+    if not check_claude_md_public():
+        all_passed = False
+
     if not scan_python_files():
         all_passed = False
     

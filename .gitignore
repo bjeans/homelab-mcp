@@ -4,8 +4,8 @@
 # Environment-specific AI instructions (use .example versions)
 .github/copilot-instructions.md
 
-# Claude AI development guide with real infrastructure details
-CLAUDE.md
+# Claude AI customizations with real infrastructure details
+CLAUDE_CUSTOM.md
 
 # Project instructions with real infrastructure details
 PROJECT_INSTRUCTIONS.md

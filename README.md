@@ -203,17 +203,17 @@ cp PROJECT_INSTRUCTIONS.example.md PROJECT_INSTRUCTIONS.md
 
 Customize with your network topology and servers.
 
-**AI development guide (for contributors):**
+**AI development guide customizations (optional):**
 
 ```bash
 # Windows
-copy CLAUDE.example.md CLAUDE.md
+copy CLAUDE_CUSTOM.example.md CLAUDE_CUSTOM.md
 
 # Linux/Mac
-cp CLAUDE.example.md CLAUDE.md
+cp CLAUDE_CUSTOM.example.md CLAUDE_CUSTOM.md
 ```
 
-Update with your repository URLs, Notion workspace, and infrastructure details.
+Customize with your actual server names and infrastructure details. This file is gitignored and allows Claude to understand your specific homelab setup. See `CLAUDE.md` for more information about local customizations.
 
 ### 4. Install Python dependencies
 
