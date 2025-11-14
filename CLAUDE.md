@@ -432,6 +432,96 @@ Before any commit:
 - [ ] Git pre-push hook installed and working (`install_git_hook.py`)
 - [ ] No real infrastructure details in commit messages
 
+### Git Workflow and Branch Protection
+
+**CRITICAL: Never commit directly to main branch**
+
+All development work MUST follow the branch → commit → PR → merge workflow:
+
+#### 1. Create Feature Branch
+
+```bash
+# Always start from updated main
+git checkout main
+git pull origin main
+
+# Create feature branch with descriptive name
+git checkout -b feature/add-minio-server
+git checkout -b fix/pihole-connection-timeout
+git checkout -b docs/update-installation-guide
+```
+
+**Branch naming conventions:**
+- `feature/` - New features or enhancements
+- `fix/` - Bug fixes
+- `docs/` - Documentation updates
+- `refactor/` - Code refactoring
+- `test/` - Test additions or updates
+
+#### 2. Make Changes and Commit
+
+```bash
+# Make your changes, then stage
+git add -A
+
+# Commit with conventional commit format
+git commit -m "feat: add Minio MCP server for object storage"
+git commit -m "fix: handle timeout in Pi-hole API calls"
+git commit -m "docs: update Docker deployment instructions"
+
+# Push to feature branch (NOT main)
+git push origin feature/add-minio-server
+```
+
+#### 3. Create Pull Request
+
+```bash
+# Use GitHub CLI to create PR
+gh pr create --title "feat: Add Minio MCP server" \
+  --body "Description of changes..."
+
+# Or create PR via GitHub web interface
+```
+
+#### 4. Merge After Review
+
+- PRs should be reviewed before merging
+- Ensure all CI/CD checks pass
+- Security pre-push hooks must succeed
+- Merge via GitHub interface (preserves audit trail)
+
+#### Git Safety Rules
+
+**NEVER do these (unless explicitly requested by user):**
+
+- ❌ Commit directly to `main` or `master` branch
+- ❌ Run `git push --force` to main/master (warn user if requested)
+- ❌ Skip git hooks with `--no-verify` or `--no-gpg-sign`
+- ❌ Run destructive commands like `git reset --hard` without confirmation
+- ❌ Update git config without user approval
+- ❌ Use `git commit --amend` (except for pre-commit hook fixes)
+- ❌ Create commits without user explicitly asking
+
+**ALWAYS do these:**
+
+- ✅ Create feature branch before making changes
+- ✅ Use conventional commit format (`feat:`, `fix:`, `docs:`, etc.)
+- ✅ Run `pre_publish_check.py` before pushing
+- ✅ Let pre-push hooks run (never skip)
+- ✅ Check authorship before amending commits (`git log -1 --format='%an %ae'`)
+- ✅ Push to feature branch, never directly to main
+- ✅ Create PR for all changes to main branch
+
+#### Emergency Direct Commits
+
+In rare cases where direct commit to main is unavoidable (e.g., critical security hotfix):
+
+1. **Get explicit user approval first**
+2. Document reason in commit message
+3. Still run all security checks
+4. Create issue to track the emergency commit
+5. Follow up with proper PR workflow for any additional changes
+
 ### Updating MCP Servers
 
 ## Key Technical Decisions
@@ -799,12 +889,15 @@ python pre_publish_check.py                   # Run security checks before commi
 python {service}_mcp_server.py               # Test specific server standalone
 python homelab_unified_mcp.py                # Run unified server
 
-# Git workflow
+# Git workflow (ALWAYS use feature branches, NEVER commit to main)
+git checkout main && git pull origin main     # Start from updated main
+git checkout -b feature/my-feature            # Create feature branch
 git status                                    # Check what's changed
 git diff                                      # Review changes before commit
 git add -A                                    # Stage all changes
 git commit -m "feat: description"            # Commit with conventional format
-git push origin feature-branch                # Push (hooks will run checks)
+git push origin feature/my-feature            # Push to feature branch (hooks run checks)
+gh pr create --title "feat: ..." --body "..." # Create pull request for review
 
 # Debugging
 grep -r "TODO\|FIXME" .                       # Find outstanding tasks
