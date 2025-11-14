@@ -528,6 +528,11 @@ Unified server mode (namespaced):
 
 ```bash
 ANSIBLE_INVENTORY_PATH=/path/to/ansible_hosts.yml
+
+# Ansible inventory group names (default: docker_hosts, podman_hosts)
+# Change these if you use different group names in your ansible_hosts.yml
+DOCKER_ANSIBLE_GROUP=docker_hosts
+PODMAN_ANSIBLE_GROUP=podman_hosts
 ```
 
 **Option 2: Using Environment Variables**
@@ -665,6 +670,11 @@ Monitor Pi-hole DNS statistics and status.
 
 ```bash
 ANSIBLE_INVENTORY_PATH=/path/to/ansible_hosts.yml
+
+# Ansible inventory group name (default: PiHole)
+# Change this if you use a different group name in your ansible_hosts.yml
+PIHOLE_ANSIBLE_GROUP=PiHole
+
 # API keys still required in .env:
 PIHOLE_API_KEY_SERVER1=your-api-key-here
 PIHOLE_API_KEY_SERVER2=your-api-key-here
