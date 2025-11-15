@@ -1,7 +1,9 @@
 services:
   # Unified Homelab MCP Server (RECOMMENDED - All services in one)
   homelab-mcp:
-    build: .
+    image: bjeans/homelab-mcp:latest
+    # Uncomment to build from source instead of using Docker Hub image:
+    # build: .
     container_name: homelab-mcp
     environment:
       # Leave ENABLED_SERVERS unset to use unified mode (default)
@@ -42,7 +44,9 @@ services:
 
   # Legacy mode: Individual servers (uncomment if needed)
   # homelab-mcp-docker:
-  #   build: .
+  #   image: bjeans/homelab-mcp:latest
+  #   # Uncomment to build from source instead of using Docker Hub image:
+  #   # build: .
   #   container_name: homelab-mcp-docker
   #   environment:
   #     - ENABLED_SERVERS=docker
@@ -55,7 +59,9 @@ services:
   #   tty: true
 
   # homelab-mcp-ping:
-  #   build: .
+  #   image: bjeans/homelab-mcp:latest
+  #   # Uncomment to build from source instead of using Docker Hub image:
+  #   # build: .
   #   container_name: homelab-mcp-ping
   #   environment:
   #     - ENABLED_SERVERS=ping
