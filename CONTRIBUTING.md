@@ -183,6 +183,135 @@ python helpers/run_checks.py
 - ✅ Always validate user inputs
 - ✅ Run `helpers/pre_publish_check.py` before committing
 
+## Release Process
+
+### Automated Docker Builds
+
+**Docker images are automatically built and published to Docker Hub via GitHub Actions.**
+
+**Trigger Conditions:**
+
+1. **PR merged to `main` branch** → Builds and tags as `latest` and `edge`
+2. **Release tags (`v*.*.*`)** → Builds with semantic versioning tags
+3. **Manual workflow dispatch** → For testing or emergency builds
+
+**Tagging Strategy:**
+
+For a release tag `v2.1.0`, the following Docker tags are created:
+- `2.1.0` (exact version)
+- `2.1` (minor version)
+- `2` (major version)
+- `latest` (if from main branch)
+
+**Multi-Platform Support:**
+- `linux/amd64` - x86_64 servers and workstations
+- `linux/arm64` - Raspberry Pi, ARM-based systems
+
+### Creating a Release
+
+**For maintainers:**
+
+1. **Update version references:**
+   ```bash
+   # Update CHANGELOG.md with version number and changes
+   # Update any version strings in documentation
+   ```
+
+2. **Commit and push to main:**
+   ```bash
+   git add CHANGELOG.md
+   git commit -m "chore: prepare release v2.1.0"
+   git push origin main
+   ```
+
+3. **Create and push the release tag:**
+   ```bash
+   git tag -a v2.1.0 -m "Release v2.1.0"
+   git push origin v2.1.0
+   ```
+
+4. **GitHub Actions automatically:**
+   - Runs security checks and tests
+   - Builds multi-platform Docker images
+   - Pushes to Docker Hub with semantic version tags
+   - Updates `latest` tag
+
+5. **Create GitHub Release:**
+   - Go to https://github.com/bjeans/homelab-mcp/releases/new
+   - Select the tag you just created
+   - Title: `v2.1.0`
+   - Copy relevant entries from CHANGELOG.md
+   - Publish release
+
+6. **Verify the build:**
+   - Check GitHub Actions: https://github.com/bjeans/homelab-mcp/actions
+   - Verify Docker Hub: https://hub.docker.com/r/bjeans/homelab-mcp/tags
+   - Test pulling the new image:
+     ```bash
+     docker pull bjeans/homelab-mcp:2.1.0
+     docker pull bjeans/homelab-mcp:latest
+     ```
+
+### Testing Docker Builds Locally
+
+**Before creating a release, test the Docker build:**
+
+```bash
+# Build for multiple platforms locally (requires Docker Buildx)
+docker buildx create --use
+docker buildx build --platform linux/amd64,linux/arm64 -t homelab-mcp:test .
+
+# Test the image
+docker run --rm homelab-mcp:test python -c "import sys; print(sys.version)"
+```
+
+### Manual Workflow Dispatch
+
+**For testing or emergency builds without a release:**
+
+1. Go to: https://github.com/bjeans/homelab-mcp/actions/workflows/docker-publish.yml
+2. Click "Run workflow"
+3. Optionally specify a custom tag
+4. Click "Run workflow" button
+
+This is useful for:
+- Testing the build process
+- Creating debug/test images
+- Emergency hotfix deployments
+
+### Rollback Process
+
+**If a release has issues:**
+
+1. **Identify the last known-good version:**
+   ```bash
+   # Users can always pull specific versions
+   docker pull bjeans/homelab-mcp:2.0.0
+   ```
+
+2. **Create a hotfix:**
+   - Fix the issue in a new branch
+   - Create PR and merge to main
+   - Create a new patch release (e.g., `v2.1.1`)
+
+3. **Update `latest` tag if needed:**
+   - The new release will automatically update `latest`
+   - Or manually retag in Docker Hub if immediate rollback needed
+
+### Docker Hub Access
+
+**Repository:** https://hub.docker.com/r/bjeans/homelab-mcp
+
+**Required Secrets (configured in GitHub repository settings):**
+- `DOCKERHUB_USERNAME` - Docker Hub username
+- `DOCKERHUB_TOKEN` - Docker Hub access token (not password!)
+
+**Security Notes:**
+- Use Docker Hub access tokens, never passwords
+- Tokens should have write permissions only for `bjeans/homelab-mcp`
+- Rotate tokens periodically
+- Never commit tokens to repository
+
 ## Project Structure
 
 ```

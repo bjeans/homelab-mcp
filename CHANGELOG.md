@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Automated Docker Image Builds:** GitHub Actions workflow for automated Docker image publishing
+  - Multi-platform support: `linux/amd64` and `linux/arm64`
+  - Semantic versioning tags (e.g., v2.1.0 → 2.1.0, 2.1, 2, latest)
+  - Automated builds when PRs are merged to main branch (tagged as `latest` and `edge`)
+  - Automated builds on release tags with semantic versioning
+  - Manual workflow dispatch for testing and emergency builds
+  - Docker layer caching for faster builds
+  - Build status badges in README
+- **Docker Hub Integration:** Pre-built images available at https://hub.docker.com/r/bjeans/homelab-mcp
+  - No need to build locally - just `docker pull bjeans/homelab-mcp:latest`
+  - Updated docker-compose.yml to use Docker Hub images by default
+  - Comprehensive tagging strategy for version management
+- **Release Process Documentation:** Complete release workflow in CONTRIBUTING.md
+  - Step-by-step release creation guide
+  - Testing procedures for Docker builds
+  - Rollback process for failed releases
+  - Docker Hub access management
 - **MCP Tool Annotations:** Added comprehensive metadata annotations to all tools across 6 MCP servers
   - `title`: Human-readable tool titles for better UX
   - `readOnlyHint`: Indicates tools only read data (all tools marked as read-only)
@@ -19,10 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full MCP specification compliance for tool metadata
 
 ### Changed
+- **docker-compose.yml:** Now uses Docker Hub images by default (with option to build from source)
+- **README.md:** Added Docker Hub badges and quick start section
+- **README.md:** Reorganized Docker deployment section with Docker Hub as primary option
 - Updated all 27 tools across Docker, Ping, Ollama, Pi-hole, Unifi, and UPS servers with annotations
 - Both unified mode (with prefixes) and standalone mode (without prefixes) tools now include annotations
 
+### Infrastructure
+- GitHub Actions workflow: `.github/workflows/docker-publish.yml`
+- Automated CI/CD pipeline for Docker image publishing
+- Integration with existing security checks
+- Build summaries and failure notifications
+
 ### Benefits
+- **Easier deployment:** Pull pre-built images instead of building locally
+- **Faster setup:** No need for local build environment
+- **Multi-platform support:** Works on x86_64 and ARM (Raspberry Pi)
+- **Version control:** Semantic versioning allows pinning to specific versions
+- **Continuous delivery:** Every release automatically available on Docker Hub
 - Better client UI/UX with visual safety indicators
 - Enhanced tool discovery capabilities
 - Improved AI reasoning about tool usage patterns
