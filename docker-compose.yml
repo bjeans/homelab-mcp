@@ -1,7 +1,12 @@
 services:
   # Unified Homelab MCP Server (RECOMMENDED - All services in one)
   homelab-mcp:
-    build: .
+    # Option 1: Use pre-built image from Docker Hub (recommended)
+    image: bjeans/homelab-mcp:latest
+
+    # Option 2: Build from source (uncomment below and comment out 'image' above)
+    # build: .
+
     container_name: homelab-mcp
     environment:
       # Leave ENABLED_SERVERS unset to use unified mode (default)

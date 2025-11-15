@@ -2,6 +2,9 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/bjeans/homelab-mcp)](https://github.com/bjeans/homelab-mcp/releases)
 [![Security Check](https://github.com/bjeans/homelab-mcp/actions/workflows/security-check.yml/badge.svg)](https://github.com/bjeans/homelab-mcp/actions/workflows/security-check.yml)
+[![Docker Build](https://github.com/bjeans/homelab-mcp/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/bjeans/homelab-mcp/actions/workflows/docker-publish.yml)
+[![Docker Image Version](https://img.shields.io/docker/v/bjeans/homelab-mcp?sort=semver&label=docker)](https://hub.docker.com/r/bjeans/homelab-mcp)
+[![Docker Pulls](https://img.shields.io/docker/pulls/bjeans/homelab-mcp)](https://hub.docker.com/r/bjeans/homelab-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/bjeans/homelab-mcp/blob/main/LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 
@@ -308,9 +311,40 @@ Separate entry for each server:
 
 Run the MCP servers in Docker containers for easier distribution, isolation, and production deployment.
 
-### Quick Start with Docker (Unified Mode - Recommended)
+### Quick Start with Docker Hub (Easiest)
 
-**All servers in one container using unified mode:**
+**Pre-built images are automatically published to Docker Hub with multi-platform support (amd64/arm64):**
+
+```bash
+# Pull the latest image
+docker pull bjeans/homelab-mcp:latest
+
+# Run with your Ansible inventory
+docker run -d \
+  --name homelab-mcp \
+  --network host \
+  -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
+  bjeans/homelab-mcp:latest
+
+# Or use a specific version
+docker pull bjeans/homelab-mcp:2.0.0
+```
+
+**Available on Docker Hub:** https://hub.docker.com/r/bjeans/homelab-mcp
+
+**Available tags:**
+- `latest` - Latest stable release from main branch
+- `edge` - Latest development build from main branch
+- `2.0.0`, `2.0`, `2` - Semantic versioning tags for releases
+- `<git-sha>` - Specific commit builds for traceability
+
+**Multi-platform support:**
+- `linux/amd64` - x86_64 servers and workstations
+- `linux/arm64` - Raspberry Pi, ARM-based systems
+
+### Build from Source (Advanced)
+
+**Build the image locally if you need to customize:**
 
 ```bash
 # Clone and navigate to repository
