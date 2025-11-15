@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **MCP Tool Annotations:** Added comprehensive metadata annotations to all tools across 6 MCP servers
+  - `title`: Human-readable tool titles for better UX
+  - `readOnlyHint`: Indicates tools only read data (all tools marked as read-only)
+  - `destructiveHint`: Indicates tools can modify/delete data (all tools marked as non-destructive)
+  - `idempotentHint`: Indicates repeated calls have same effect (varies by tool based on caching behavior)
+  - `openWorldHint`: Indicates tools return dynamic/real-time data (all tools interact with external systems)
+- Enhanced MCP Inspector visualization with tool metadata
+- Improved AI understanding of tool safety and behavior
+- Full MCP specification compliance for tool metadata
+
+### Changed
+- Updated all 27 tools across Docker, Ping, Ollama, Pi-hole, Unifi, and UPS servers with annotations
+- Both unified mode (with prefixes) and standalone mode (without prefixes) tools now include annotations
+
+### Benefits
+- Better client UI/UX with visual safety indicators
+- Enhanced tool discovery capabilities
+- Improved AI reasoning about tool usage patterns
+- Consistent metadata across all homelab infrastructure tools
+
 ## [1.0.0] - 2025-10-11
 
 ### Added
