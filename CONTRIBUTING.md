@@ -191,7 +191,7 @@ python helpers/run_checks.py
 
 **Trigger Conditions:**
 
-1. **Push to `main` branch** → Builds and tags as `latest` and `edge`
+1. **PR merged to `main` branch** → Builds and tags as `latest` and `edge`
 2. **Release tags (`v*.*.*`)** → Builds with semantic versioning tags
 3. **Manual workflow dispatch** → For testing or emergency builds
 

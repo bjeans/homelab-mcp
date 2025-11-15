@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated Docker Image Builds:** GitHub Actions workflow for automated Docker image publishing
   - Multi-platform support: `linux/amd64` and `linux/arm64`
   - Semantic versioning tags (e.g., v2.1.0 → 2.1.0, 2.1, 2, latest)
-  - Automated builds on push to main branch (tagged as `latest` and `edge`)
+  - Automated builds when PRs are merged to main branch (tagged as `latest` and `edge`)
   - Automated builds on release tags with semantic versioning
   - Manual workflow dispatch for testing and emergency builds
   - Docker layer caching for faster builds
