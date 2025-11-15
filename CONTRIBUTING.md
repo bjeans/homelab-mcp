@@ -82,10 +82,16 @@ python helpers/install_git_hook.py
 
 Before submitting a PR, test your MCP servers locally using the MCP Inspector:
 
-**Install the MCP Inspector tool:**
+**Install the MCP Inspector tool (optional developer tool):**
+
+The MCP Inspector is a Node.js-based debugging tool. It's **not** a project dependency - install it globally on your development machine if you need to test MCP servers interactively.
 
 ```bash
+# Option 1: Install globally (one-time setup)
 npm install -g @modelcontextprotocol/inspector
+
+# Option 2: Use npx without installing (recommended)
+# Just use npx in the commands below - it will download and run automatically
 ```
 
 **Test individual servers:**
