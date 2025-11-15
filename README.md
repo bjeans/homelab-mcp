@@ -81,7 +81,7 @@ After setting up the MCP servers, **create your personalized project instruction
 **What's included:**
 
 - Detailed MCP server capabilities and usage patterns
-- Infrastructure overview and monitoring capabilities  
+- Infrastructure overview and monitoring capabilities
 - Specific commands and tools available for each service
 - Troubleshooting and development guidance
 
@@ -311,6 +311,8 @@ Separate entry for each server:
 
 Run the MCP servers in Docker containers for easier distribution, isolation, and production deployment.
 
+**Docker Hub:** [bjeans/homelab-mcp](https://hub.docker.com/r/bjeans/homelab-mcp)
+
 ### Quick Start with Docker Hub (Easiest)
 
 **Pre-built images are automatically published to Docker Hub with multi-platform support (amd64/arm64):**
@@ -347,12 +349,8 @@ docker pull bjeans/homelab-mcp:2.0.0
 **Build the image locally if you need to customize:**
 
 ```bash
-# Clone and navigate to repository
-git clone https://github.com/bjeans/homelab-mcp
-cd homelab-mcp
-
-# Build the image
-docker build -t homelab-mcp:latest .
+# Pull the pre-built image from Docker Hub (recommended)
+docker pull bjeans/homelab-mcp:latest
 
 # Run with Docker Compose (recommended for production)
 docker-compose up -d
@@ -362,7 +360,18 @@ docker run -d \
   --name homelab-mcp \
   --network host \
   -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
+```
+
+**Building from source (optional):**
+
+```bash
+# Clone and navigate to repository
+git clone https://github.com/bjeans/homelab-mcp
+cd homelab-mcp
+
+# Build the image locally
+docker build -t homelab-mcp:latest .
 ```
 
 ### Docker Features
@@ -388,7 +397,7 @@ docker run -d \
   --name homelab-mcp \
   --network host \
   -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
 ```
 
 **Method 2: Environment Variables (Marketplace Ready)**
@@ -400,7 +409,7 @@ docker run -d \
   -e DOCKER_SERVER1_ENDPOINT=192.168.1.100:2375 \
   -e DOCKER_SERVER1_NAME=Local-Docker \
   -e OLLAMA_SERVER1_ENDPOINT=192.168.1.100:11434 \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
 ```
 
 ### Legacy Mode: Individual Servers (Docker)
@@ -413,7 +422,7 @@ docker run -d \
   --network host \
   -e ENABLED_SERVERS=docker \
   -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
 ```
 
 ### Available Servers
@@ -490,12 +499,12 @@ See [DOCKER.md](DOCKER.md) for comprehensive Docker deployment guide including:
 docker run --rm --network host \
     -e DOCKER_SERVER1_ENDPOINT=localhost:2375 \
     -e OLLAMA_SERVER1_ENDPOINT=localhost:11434 \
-    homelab-mcp:latest
+    bjeans/homelab-mcp:latest
 
 # Test Individual Server (legacy)
 docker run --rm --network host \
     -e ENABLED_SERVERS=ping \
-    homelab-mcp:latest
+    bjeans/homelab-mcp:latest
 ```
 
 **Docker Compose testing:**

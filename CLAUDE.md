@@ -2,12 +2,18 @@
 
 ## Project Overview
 
-**Repository:** <https://github.com/bjeans/homelab-mcp>  
-**Version:** 2.0.0 (Released: 2025-10-30)  
-**License:** MIT  
+**Repository:** <https://github.com/bjeans/homelab-mcp>
+**Docker Hub:** <https://hub.docker.com/r/bjeans/homelab-mcp>
+**Version:** 2.0.0 (Released: 2025-10-30)
+**License:** MIT
 **Purpose:** Open-source MCP servers for homelab infrastructure management through Claude Desktop
 
 This project provides real-time monitoring and control of homelab infrastructure through 7 specialized MCP servers, including Docker/Podman containers, Ollama AI models, Pi-hole DNS, Unifi networks, UPS monitoring, and Ansible inventory management via the Model Context Protocol.
+
+**Deployment Options:**
+- Native Python installation (recommended for development)
+- Docker container from Docker Hub: `bjeans/homelab-mcp:latest` (recommended for production)
+- Docker build from source (for customization)
 
 ## Core Philosophy
 
@@ -50,12 +56,15 @@ homelab-mcp/
 │   ├── CI_CD_CHECKS.md                # CI/CD automation docs
 │   └── LICENSE                        # MIT License
 │
+├── Docker Deployment
+│   ├── Dockerfile                     # Container build config
+│   ├── docker-compose.yml             # Container orchestration (uses bjeans/homelab-mcp:latest)
+│   ├── docker-entrypoint.sh           # Docker container startup
+│   └── Published at: <https://hub.docker.com/r/bjeans/homelab-mcp>
+│
 ├── Utilities & Tools
 │   ├── mcp_registry_inspector.py      # MCP file management
 │   ├── unifi_exporter.py              # Unifi data export utility
-│   ├── docker-entrypoint.sh           # Docker container startup
-│   ├── Dockerfile                     # Container build config
-│   ├── docker-compose.yml             # Container orchestration
 │   ├── requirements.txt               # Python dependencies
 │   └── .gitignore                     # Git ignore rules
 │
@@ -77,20 +86,20 @@ All servers follow this unified architecture supporting both **standalone** and 
 ```python
 class UpsMCPServer:
     """Service-specific MCP server with shared inventory support"""
-    
+
     def __init__(self, ansible_inventory=None):
         """Initialize with optional pre-loaded inventory (for unified mode)
-        
+
         Args:
             ansible_inventory: Pre-loaded inventory dict from unified server
                              If None, will load from file at runtime
         """
         self.ansible_inventory = ansible_inventory
         self.inventory_data = None
-    
+
     async def list_tools(self) -> list[types.Tool]:
         """Return tools with SERVICE_ prefix (e.g., ups_get_status)
-        
+
         Prefix ensures no collisions when combined in unified server
         """
         return [
@@ -101,7 +110,7 @@ class UpsMCPServer:
             ),
             # ... more tools
         ]
-    
+
     async def handle_tool(self, tool_name: str, arguments: dict) -> list[types.TextContent]:
         """Route tool calls to shared implementation
         
@@ -868,6 +877,7 @@ This allows Claude to:
 ## Links and Resources
 
 - **Repository:** <https://github.com/bjeans/homelab-mcp>
+- **Docker Hub:** <https://hub.docker.com/r/bjeans/homelab-mcp>
 - **Issues:** <https://github.com/bjeans/homelab-mcp/issues>
 - **Discussions:** <https://github.com/bjeans/homelab-mcp/discussions>
 - **Security:** <https://github.com/bjeans/homelab-mcp/security/advisories>
@@ -883,6 +893,11 @@ This allows Claude to:
 cp .env.example .env                          # Create config file
 cp ansible_hosts.example.yml ansible_hosts.yml # Create Ansible inventory
 python install_git_hook.py                    # Install pre-push security checks
+
+# Docker deployment (production)
+docker pull bjeans/homelab-mcp:latest         # Pull pre-built image from Docker Hub
+docker-compose up -d                          # Run with Docker Compose
+docker build -t homelab-mcp:latest .          # Or build from source
 
 # Development
 python pre_publish_check.py                   # Run security checks before commit
