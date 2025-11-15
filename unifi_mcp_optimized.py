@@ -120,7 +120,7 @@ class UnifiMCPServer:
                 title="Refresh Unifi Network Data",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
         ]
@@ -302,7 +302,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Refresh Unifi Network Data",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
     ]
