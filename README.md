@@ -1057,11 +1057,13 @@ Core dependencies:
 **Quick start:**
 
 ```bash
-# Install MCP Inspector (one time)
-npm install -g @modelcontextprotocol/inspector
-
-# Test your changes
+# MCP Inspector is an optional Node.js tool for interactive testing
+# Option 1: Use npx (no installation needed - recommended)
 npx @modelcontextprotocol/inspector uv --directory . run <server>_mcp.py
+
+# Option 2: Install globally first (one-time setup)
+npm install -g @modelcontextprotocol/inspector
+# Then run: mcp-inspector uv --directory . run <server>_mcp.py
 ```
 
 This opens a web-based debugger at `http://localhost:5173` where you can:

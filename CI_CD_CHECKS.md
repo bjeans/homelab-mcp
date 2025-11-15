@@ -20,9 +20,15 @@ The project uses multiple layers of automated checks to ensure code quality, sec
 
 ### Prerequisites
 
-Install the MCP Inspector tool:
+**MCP Inspector (optional Node.js debugging tool):**
+
+The MCP Inspector is **not** a project dependency. It's an optional developer tool for interactive testing. You can either install it globally or use `npx` to run it on-demand.
 
 ```bash
+# Option 1: Use npx (no installation needed - recommended)
+# Just use npx in the commands below
+
+# Option 2: Install globally (one-time setup)
 npm install -g @modelcontextprotocol/inspector
 ```
 
