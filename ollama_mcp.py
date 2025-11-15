@@ -162,7 +162,7 @@ class OllamaMCPServer:
                 title="Get Ollama Status",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
             types.Tool(
@@ -181,7 +181,7 @@ class OllamaMCPServer:
                 title="Get Ollama Models",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
             types.Tool(
@@ -191,7 +191,7 @@ class OllamaMCPServer:
                 title="Get LiteLLM Status",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
         ]
@@ -237,7 +237,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Get Ollama Status",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
         types.Tool(
@@ -256,7 +256,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Get Ollama Models",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
         types.Tool(
@@ -266,7 +266,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Get LiteLLM Status",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
     ]

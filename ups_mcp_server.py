@@ -486,7 +486,7 @@ class UpsMCPServer:
                 title="Reload Inventory",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
         ]
@@ -922,7 +922,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Reload Inventory",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
     ]

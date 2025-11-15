@@ -405,7 +405,7 @@ class DockerMCPServer:
                 title="Get Containers on Host",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
             types.Tool(
@@ -415,7 +415,7 @@ class DockerMCPServer:
                 title="Get All Containers",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
             types.Tool(
@@ -459,7 +459,7 @@ class DockerMCPServer:
                 title="Check Container Status",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
             types.Tool(
@@ -486,7 +486,7 @@ class DockerMCPServer:
                 title="Find Containers by Label",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
             types.Tool(
@@ -510,7 +510,7 @@ class DockerMCPServer:
                 title="Get Container Labels",
                 readOnlyHint=True,
                 destructiveHint=False,
-                idempotentHint=True,
+                idempotentHint=False,
                 openWorldHint=True,
             ),
         ]
@@ -555,7 +555,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Get Containers on Host",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
         types.Tool(
@@ -565,7 +565,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Get All Containers",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
         types.Tool(
@@ -609,7 +609,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Check Container Status",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
         types.Tool(
@@ -636,7 +636,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Find Containers by Label",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
         types.Tool(
@@ -660,7 +660,7 @@ async def handle_list_tools() -> list[types.Tool]:
             title="Get Container Labels",
             readOnlyHint=True,
             destructiveHint=False,
-            idempotentHint=True,
+            idempotentHint=False,
             openWorldHint=True,
         ),
     ]
