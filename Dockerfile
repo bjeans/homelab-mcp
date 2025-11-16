@@ -14,15 +14,16 @@ LABEL org.opencontainers.image.licenses="MIT"
 # Set working directory
 WORKDIR /app
 
+# Install system dependencies first (before creating user with bash shell)
+RUN apk add --no-cache \
+    bash \
+    iputils-ping \
+    procps-ng
+
 # Create non-root user for security
 RUN adduser -D -u 1000 -s /bin/bash mcpuser && \
     mkdir -p /config /app && \
     chown -R mcpuser:mcpuser /app /config
-
-# Install system dependencies
-RUN apk add --no-cache \
-    bash \
-    iputils-ping
 
 # Copy requirements first for better layer caching
 COPY --chown=mcpuser:mcpuser requirements.txt .
