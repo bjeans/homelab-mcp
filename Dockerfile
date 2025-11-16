@@ -30,7 +30,7 @@ LABEL description="MCP servers for homelab infrastructure management"
 LABEL org.opencontainers.image.source="https://github.com/bjeans/homelab-mcp"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Install runtime dependencies first (before creating user with bash shell)
+# Install runtime dependencies (requires root privileges)
 RUN apk add --no-cache \
     bash \
     iputils-ping \
