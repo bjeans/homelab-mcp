@@ -45,7 +45,6 @@ jobs:
             image=moby/buildkit:latest
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
