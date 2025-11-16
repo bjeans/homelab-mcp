@@ -1,8 +1,9 @@
 # Homelab MCP Servers - Docker Container
 # Packages Docker and Ping MCP servers for easy distribution
 # https://github.com/bjeans/homelab-mcp
+# https://hub.docker.com/r/bjeans/homelab-mcp
 
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
 # Metadata
 LABEL maintainer="Barnaby Jeans <barnaby@bjeans.dev>"
@@ -14,15 +15,14 @@ LABEL org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 
 # Create non-root user for security
-RUN useradd -m -u 1000 -s /bin/bash mcpuser && \
+RUN adduser -D -u 1000 -s /bin/bash mcpuser && \
     mkdir -p /config /app && \
     chown -R mcpuser:mcpuser /app /config
 
 # Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    iputils-ping \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    bash \
+    iputils-ping
 
 # Copy requirements first for better layer caching
 COPY --chown=mcpuser:mcpuser requirements.txt .
