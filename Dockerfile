@@ -4,7 +4,7 @@
 # https://hub.docker.com/r/bjeans/homelab-mcp
 
 # === Builder Stage ===
-FROM python:3.11-alpine3.19 AS builder
+FROM python:3.14-alpine AS builder
 
 # Install build dependencies (temporary, will be removed in runtime stage)
 RUN apk add --no-cache --virtual .build-deps \
@@ -18,11 +18,14 @@ RUN apk add --no-cache --virtual .build-deps \
 # Copy requirements
 COPY requirements.txt .
 
+# Upgrade pip to 25.3+ (mitigates CVE-2025-8869: pip tarfile link following vulnerability)
+RUN pip install --no-cache-dir --upgrade "pip>=25.3"
+
 # Install Python dependencies into /install directory
 RUN pip install --no-cache-dir --target=/install -r requirements.txt
 
 # === Runtime Stage ===
-FROM python:3.11-alpine3.19
+FROM python:3.14-alpine
 
 # Metadata
 LABEL maintainer="Barnaby Jeans <barnaby@bjeans.dev>"
@@ -35,8 +38,10 @@ RUN apk add --no-cache \
     bash \
     iputils-ping \
     procps-ng \
-    yaml \
     libffi
+
+# Upgrade pip to 25.3+ (mitigates CVE-2025-8869: pip tarfile link following vulnerability)
+RUN pip install --no-cache-dir --upgrade "pip>=25.3"
 
 # Create non-root user for security (now bash is available)
 RUN adduser -D -u 1000 -s /bin/bash mcpuser && \
@@ -47,7 +52,7 @@ RUN adduser -D -u 1000 -s /bin/bash mcpuser && \
 WORKDIR /app
 
 # Copy Python packages from builder
-COPY --from=builder /install /usr/local/lib/python3.11/site-packages
+COPY --from=builder /install /usr/local/lib/python3.14/site-packages
 
 # Copy requirements for reference
 COPY --chown=mcpuser:mcpuser requirements.txt .
