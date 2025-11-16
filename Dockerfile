@@ -3,7 +3,26 @@
 # https://github.com/bjeans/homelab-mcp
 # https://hub.docker.com/r/bjeans/homelab-mcp
 
-FROM python:3.11-alpine
+# === Builder Stage ===
+FROM python:3.11-alpine3.19 AS builder
+
+# Install build dependencies (temporary, will be removed in runtime stage)
+RUN apk add --no-cache --virtual .build-deps \
+    gcc \
+    musl-dev \
+    python3-dev \
+    libffi-dev \
+    openssl-dev \
+    yaml-dev
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies into /install directory
+RUN pip install --no-cache-dir --target=/install -r requirements.txt
+
+# === Runtime Stage ===
+FROM python:3.11-alpine3.19
 
 # Metadata
 LABEL maintainer="Barnaby Jeans <barnaby@bjeans.dev>"
@@ -11,25 +30,27 @@ LABEL description="MCP servers for homelab infrastructure management"
 LABEL org.opencontainers.image.source="https://github.com/bjeans/homelab-mcp"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Set working directory
-WORKDIR /app
-
-# Install system dependencies first (before creating user with bash shell)
+# Install runtime dependencies first (before creating user with bash shell)
 RUN apk add --no-cache \
     bash \
     iputils-ping \
-    procps-ng
+    procps-ng \
+    yaml \
+    libffi
 
-# Create non-root user for security
+# Create non-root user for security (now bash is available)
 RUN adduser -D -u 1000 -s /bin/bash mcpuser && \
     mkdir -p /config /app && \
     chown -R mcpuser:mcpuser /app /config
 
-# Copy requirements first for better layer caching
-COPY --chown=mcpuser:mcpuser requirements.txt .
+# Set working directory
+WORKDIR /app
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy Python packages from builder
+COPY --from=builder /install /usr/local/lib/python3.11/site-packages
+
+# Copy requirements for reference
+COPY --chown=mcpuser:mcpuser requirements.txt .
 
 # Copy MCP server files
 COPY --chown=mcpuser:mcpuser ansible_config_manager.py .
