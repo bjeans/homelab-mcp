@@ -367,11 +367,12 @@ def format_ups_details(ups_name: str, ups_data: Optional[Dict], host_name: str) 
 class UpsMCPServer:
     """UPS MCP Server - Class-based implementation for unified mode"""
 
-    def __init__(self, ansible_inventory=None):
+    def __init__(self, ansible_inventory=None, ansible_config=None):
         """Initialize configuration
 
         Args:
             ansible_inventory: Optional pre-loaded Ansible inventory dict (for unified mode)
+            ansible_config: Optional AnsibleConfigManager instance (for enum generation)
         """
         # Load environment configuration (skip if in unified mode)
         if not os.getenv("MCP_UNIFIED_MODE"):
@@ -379,6 +380,9 @@ class UpsMCPServer:
 
         self.ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
         logger.info(f"[UpsMCPServer] Ansible inventory: {self.ansible_inventory_path}")
+
+        # Store config manager for enum generation
+        self.ansible_config = ansible_config
 
         # Inventory cache for this instance
         self.inventory_data = None
@@ -415,6 +419,19 @@ class UpsMCPServer:
 
     async def list_tools(self) -> list[types.Tool]:
         """Return list of Tool objects this server provides (with ups_ prefix)"""
+        # Get dynamic enums from Ansible inventory
+        ups_hosts = []
+        if self.ansible_config and self.ansible_config.is_available():
+            ups_hosts = self.ansible_config.get_ups_hosts()
+
+        # Build host parameter schema with optional enum
+        host_property = {
+            "type": "string",
+            "description": "NUT server hostname from your Ansible inventory",
+        }
+        if ups_hosts:
+            host_property["enum"] = ups_hosts
+
         return [
             types.Tool(
                 name="ups_get_ups_status",
@@ -434,10 +451,7 @@ class UpsMCPServer:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "host": {
-                            "type": "string",
-                            "description": "NUT server hostname (e.g., 'dell-server')",
-                        },
+                        "host": host_property,
                         "ups_name": {
                             "type": "string",
                             "description": "UPS device name (optional)",

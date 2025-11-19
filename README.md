@@ -519,6 +519,30 @@ For comprehensive Docker deployment guide, see [DOCKER.md](DOCKER.md).
 
 ## 📦 Available MCP Servers
 
+### ✨ Dynamic Tool Parameter Enums (New in v2.1)
+
+When you configure Ansible inventory, Claude Desktop will automatically show your infrastructure options in dropdown menus. No more guessing hostnames or group names!
+
+**What gets auto-populated:**
+- **Ping tools** - Your Ansible groups appear in dropdown menus
+- **Docker tools** - Your Docker/Podman hosts shown in dropdowns
+- **Ollama tools** - Your Ollama server hostnames available for selection
+- **UPS tools** - Your NUT server hostnames shown in dropdowns
+
+**How it works:**
+1. Set `ANSIBLE_INVENTORY_PATH` in your `.env` file
+2. Restart Claude Desktop
+3. When using tools, Claude shows your actual infrastructure in dropdown menus instead of requiring manual entry
+
+**Graceful degradation:** If no Ansible inventory is configured, tools still work - you just won't see dropdown suggestions.
+
+**Example before/after:**
+
+*Before:* "Which group should I ping?" → User manually types "webservers" (or guesses)
+*After:* "Which group should I ping?" → User selects from dropdown: `all`, `docker_hosts`, `webservers`, `databases`, etc.
+
+---
+
 ### MCP Registry Inspector
 
 Provides introspection into your MCP development environment.

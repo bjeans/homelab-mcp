@@ -125,11 +125,12 @@ if __name__ == "__main__":
 class OllamaMCPServer:
     """Ollama MCP Server - Class-based implementation"""
 
-    def __init__(self, ansible_inventory=None):
+    def __init__(self, ansible_inventory=None, ansible_config=None):
         """Initialize configuration using existing config loading logic
 
         Args:
             ansible_inventory: Optional pre-loaded Ansible inventory dict (for unified mode)
+            ansible_config: Optional AnsibleConfigManager instance (for enum generation)
         """
         # Load environment configuration (skip if in unified mode)
         if not os.getenv("MCP_UNIFIED_MODE"):
@@ -146,6 +147,9 @@ class OllamaMCPServer:
         logger.info(f"[OllamaMCPServer] Ansible inventory: {self.ansible_inventory_path}")
         logger.info(f"[OllamaMCPServer] LiteLLM endpoint: {self.litellm_host}:{self.litellm_port}")
 
+        # Store config manager for enum generation
+        self.ansible_config = ansible_config
+
         # Load Ollama endpoints (use pre-loaded inventory if provided)
         self.ollama_endpoints = load_ollama_endpoints_from_ansible(ansible_inventory)
 
@@ -154,6 +158,23 @@ class OllamaMCPServer:
 
     async def list_tools(self) -> list[types.Tool]:
         """Return list of Tool objects this server provides (with ollama_ prefix)"""
+        # Get dynamic enums from Ansible inventory
+        ollama_hosts = []
+        if self.ansible_config and self.ansible_config.is_available():
+            ollama_hosts = self.ansible_config.get_ollama_hosts()
+
+        # Fall back to loaded endpoints if no Ansible config
+        if not ollama_hosts and self.ollama_endpoints:
+            ollama_hosts = sorted(list(self.ollama_endpoints.keys()))
+
+        # Build host parameter schema with optional enum
+        host_property = {
+            "type": "string",
+            "description": "Ollama host from your Ansible inventory",
+        }
+        if ollama_hosts:
+            host_property["enum"] = ollama_hosts
+
         return [
             types.Tool(
                 name="ollama_get_status",
@@ -173,10 +194,7 @@ class OllamaMCPServer:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "host": {
-                            "type": "string",
-                            "description": f"Host: {', '.join(self.ollama_endpoints.keys())}",
-                        }
+                        "host": host_property
                     },
                     "required": ["host"],
                 },

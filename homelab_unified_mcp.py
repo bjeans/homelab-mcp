@@ -52,6 +52,9 @@ from pihole_mcp import PiholeMCPServer
 from unifi_mcp_optimized import UnifiMCPServer
 from ups_mcp_server import UpsMCPServer
 
+# Import AnsibleConfigManager for enum generation
+from ansible_config_manager import AnsibleConfigManager
+
 # Import yaml for loading Ansible inventory
 import yaml
 
@@ -93,15 +96,40 @@ class UnifiedHomelabServer:
         # Load Ansible inventory ONCE to avoid file locking issues
         shared_inventory = load_shared_ansible_inventory()
 
-        # Initialize all sub-servers with shared inventory
+        # Create AnsibleConfigManager for enum generation
+        ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
+        ansible_config = None
+        if ansible_inventory_path:
+            ansible_config = AnsibleConfigManager(
+                inventory_path=ansible_inventory_path,
+                logger_obj=logger
+            )
+            if ansible_config.is_available():
+                logger.info("AnsibleConfigManager initialized successfully for enum generation")
+            else:
+                logger.warning("AnsibleConfigManager not available, dynamic enums will be disabled")
+                ansible_config = None
+        else:
+            logger.info("No Ansible inventory path configured, dynamic enums will be disabled")
+
+        # Initialize all sub-servers with shared inventory and config manager
         logger.info("Initializing Docker/Podman MCP Server...")
-        self.docker = DockerMCPServer(ansible_inventory=shared_inventory)
+        self.docker = DockerMCPServer(
+            ansible_inventory=shared_inventory,
+            ansible_config=ansible_config
+        )
 
         logger.info("Initializing Ping MCP Server...")
-        self.ping = PingMCPServer(ansible_inventory=shared_inventory)
+        self.ping = PingMCPServer(
+            ansible_inventory=shared_inventory,
+            ansible_config=ansible_config
+        )
 
         logger.info("Initializing Ollama MCP Server...")
-        self.ollama = OllamaMCPServer(ansible_inventory=shared_inventory)
+        self.ollama = OllamaMCPServer(
+            ansible_inventory=shared_inventory,
+            ansible_config=ansible_config
+        )
 
         logger.info("Initializing Pi-hole MCP Server...")
         self.pihole = PiholeMCPServer(ansible_inventory=shared_inventory)
@@ -110,7 +138,10 @@ class UnifiedHomelabServer:
         self.unifi = UnifiMCPServer()  # Unifi doesn't use Ansible inventory
 
         logger.info("Initializing UPS MCP Server...")
-        self.ups = UpsMCPServer(ansible_inventory=shared_inventory)
+        self.ups = UpsMCPServer(
+            ansible_inventory=shared_inventory,
+            ansible_config=ansible_config
+        )
 
         # Register handlers
         self.setup_handlers()
