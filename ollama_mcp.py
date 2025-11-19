@@ -160,10 +160,12 @@ class OllamaMCPServer:
                 description="Check status of all Ollama instances",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get Ollama Status",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ollama_get_models",
@@ -179,20 +181,24 @@ class OllamaMCPServer:
                     "required": ["host"],
                 },
                 title="Get Ollama Models",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ollama_get_litellm_status",
                 description="Check LiteLLM proxy status",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get LiteLLM Status",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
         ]
 
@@ -235,10 +241,12 @@ async def handle_list_tools() -> list[types.Tool]:
             description="Check status of all Ollama instances",
             inputSchema={"type": "object", "properties": {}},
             title="Get Ollama Status",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_ollama_models",
@@ -254,20 +262,24 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["host"],
             },
             title="Get Ollama Models",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_litellm_status",
             description="Check LiteLLM proxy status",
             inputSchema={"type": "object", "properties": {}},
             title="Get LiteLLM Status",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
     ]
 

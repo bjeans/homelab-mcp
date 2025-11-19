@@ -421,10 +421,12 @@ class UpsMCPServer:
                 description="Get status of all UPS devices across all NUT servers",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get UPS Status",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ups_get_ups_details",
@@ -444,50 +446,60 @@ class UpsMCPServer:
                     "required": ["host"],
                 },
                 title="Get UPS Details",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ups_get_battery_runtime",
                 description="Get battery runtime estimates for all UPS devices",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get Battery Runtime",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ups_list_ups_devices",
                 description="List all UPS devices configured in the inventory",
                 inputSchema={"type": "object", "properties": {}},
                 title="List UPS Devices",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ups_get_power_events",
                 description="Check for recent power events",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get Power Events",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ups_reload_inventory",
                 description="Reload Ansible inventory from disk",
                 inputSchema={"type": "object", "properties": {}},
                 title="Reload Inventory",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
         ]
 
@@ -863,10 +875,12 @@ async def handle_list_tools() -> list[types.Tool]:
             description="Get status of all UPS devices across all NUT servers",
             inputSchema={"type": "object", "properties": {}},
             title="Get UPS Status",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_ups_details",
@@ -880,50 +894,60 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["host"],
             },
             title="Get UPS Details",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_battery_runtime",
             description="Get battery runtime estimates for all UPS devices",
             inputSchema={"type": "object", "properties": {}},
             title="Get Battery Runtime",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="list_ups_devices",
             description="List all UPS devices configured in the inventory",
             inputSchema={"type": "object", "properties": {}},
             title="List UPS Devices",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_power_events",
             description="Check for recent power events",
             inputSchema={"type": "object", "properties": {}},
             title="Get Power Events",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="reload_inventory",
             description="Reload Ansible inventory from disk",
             inputSchema={"type": "object", "properties": {}},
             title="Reload Inventory",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
     ]
 

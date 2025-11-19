@@ -63,20 +63,24 @@ class AnsibleInventoryMCP:
                     description="Get a list of all hosts in the Ansible inventory with their basic information",
                     inputSchema={"type": "object", "properties": {}, "required": []},
                     title="Get All Hosts",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=True,
+                        openWorldHint=True,
+                    )
                 ),
                 types.Tool(
                     name="get_all_groups",
                     description="Get a list of all groups defined in the Ansible inventory",
                     inputSchema={"type": "object", "properties": {}, "required": []},
                     title="Get All Groups",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=True,
+                        openWorldHint=True,
+                    )
                 ),
                 types.Tool(
                     name="get_host_details",
@@ -92,10 +96,12 @@ class AnsibleInventoryMCP:
                         "required": ["hostname"],
                     },
                     title="Get Host Details",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=True,
+                        openWorldHint=True,
+                    )
                 ),
                 types.Tool(
                     name="get_group_details",
@@ -111,10 +117,12 @@ class AnsibleInventoryMCP:
                         "required": ["group_name"],
                     },
                     title="Get Group Details",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=True,
+                        openWorldHint=True,
+                    )
                 ),
                 types.Tool(
                     name="get_hosts_by_group",
@@ -130,10 +138,12 @@ class AnsibleInventoryMCP:
                         "required": ["group_name"],
                     },
                     title="Get Hosts by Group",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=True,
+                        openWorldHint=True,
+                    )
                 ),
                 types.Tool(
                     name="search_hosts",
@@ -157,30 +167,36 @@ class AnsibleInventoryMCP:
                         "required": [],
                     },
                     title="Search Hosts",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=True,
+                        openWorldHint=True,
+                    )
                 ),
                 types.Tool(
                     name="get_inventory_summary",
                     description="Get a high-level summary of the inventory including counts and structure",
                     inputSchema={"type": "object", "properties": {}, "required": []},
                     title="Get Inventory Summary",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=True,
+                        openWorldHint=True,
+                    )
                 ),
                 types.Tool(
                     name="reload_inventory",
                     description="Reload the inventory file from disk (useful if it has been updated)",
                     inputSchema={"type": "object", "properties": {}, "required": []},
                     title="Reload Inventory",
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=False,
-                    openWorldHint=True,
+                    annotations=types.ToolAnnotations(
+                        readOnlyHint=True,
+                        destructiveHint=False,
+                        idempotentHint=False,
+                        openWorldHint=True,
+                    )
                 ),
             ]
 
