@@ -88,40 +88,48 @@ class UnifiMCPServer:
                 description="Get all Unifi network devices (switches, APs, gateways) with status and basic info. This is cached for better performance.",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="Get Unifi Network Devices",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="unifi_get_network_clients",
                 description="Get all active network clients and their connections. This is cached for better performance.",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="Get Unifi Network Clients",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="unifi_get_network_summary",
                 description="Get network overview: VLANs, device count, client count. Fast summary view.",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="Get Unifi Network Summary",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="unifi_refresh_network_data",
                 description="Force refresh network data from Unifi controller (bypasses cache).",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="Refresh Unifi Network Data",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
         ]
 
@@ -270,40 +278,48 @@ async def handle_list_tools() -> list[types.Tool]:
             description="Get all Unifi network devices (switches, APs, gateways) with status and basic info. This is cached for better performance.",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="Get Unifi Network Devices",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_network_clients",
             description="Get all active network clients and their connections. This is cached for better performance.",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="Get Unifi Network Clients",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_network_summary",
             description="Get network overview: VLANs, device count, client count. Fast summary view.",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="Get Unifi Network Summary",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="refresh_network_data",
             description="Force refresh network data from Unifi controller (bypasses cache).",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="Refresh Unifi Network Data",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
     ]
 

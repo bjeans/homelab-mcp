@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced MCP Inspector visualization with tool metadata
 - Improved AI understanding of tool safety and behavior
 - Full MCP specification compliance for tool metadata
+- **CLAUDE_CUSTOM.md:** New gitignored file for homelab-specific customizations
+- **CLAUDE_CUSTOM.example.md:** Detailed template for local Claude customizations
+- **Local Customizations Section:** Added to CLAUDE.md explaining the customization system
 
 ### Changed
 - **docker-compose.yml:** Now uses Docker Hub images by default (with option to build from source)
@@ -41,12 +44,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **README.md:** Reorganized Docker deployment section with Docker Hub as primary option
 - Updated all 27 tools across Docker, Ping, Ollama, Pi-hole, Unifi, and UPS servers with annotations
 - Both unified mode (with prefixes) and standalone mode (without prefixes) tools now include annotations
+- **CLAUDE.md:** Now public-ready with generalized examples (removed Dell-Server, HL16 references)
+- **.gitignore:** Updated to exclude CLAUDE_CUSTOM.md instead of CLAUDE.md
+- **README.md:** Updated setup instructions for CLAUDE_CUSTOM.md
+- **SECURITY.md:** Added guidance for Claude customization files
+
+### Fixed
+- **MCP Tool Annotations Protocol Compliance:** Wrapped all annotation hints in `types.ToolAnnotations()` object per MCP specification
+  - Affects 33 tools across all 7 MCP servers (Ansible, Docker, Ollama, Pi-hole, Ping, Unifi, UPS)
+  - Annotation hints (readOnlyHint, destructiveHint, idempotentHint, openWorldHint) now properly encapsulated
+  - Fixed in both class-based implementations (unified mode) and module-level handlers (standalone mode)
+  - Ensures correct MCP protocol serialization and client interpretation
 
 ### Infrastructure
 - GitHub Actions workflow: `.github/workflows/docker-publish.yml`
 - Automated CI/CD pipeline for Docker image publishing
 - Integration with existing security checks
 - Build summaries and failure notifications
+
+### Improved
+- Separation of public documentation from homelab-specific details
+- Claude can now access project documentation on web and GitHub
+- Better security by keeping infrastructure details in separate gitignored file
 
 ### Benefits
 - **Easier deployment:** Pull pre-built images instead of building locally
@@ -58,6 +77,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced tool discovery capabilities
 - Improved AI reasoning about tool usage patterns
 - Consistent metadata across all homelab infrastructure tools
+
+### Planned
+- Additional MCP servers (suggestions welcome!)
+- Advanced analytics and reporting features
+- Grafana dashboard integration
+- Home Assistant integration
+- Kubernetes deployment option
+- Enhanced monitoring and alerting
 
 ## [1.0.0] - 2025-10-11
 
@@ -120,30 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 - Grafana dashboard integration
 - Home Assistant integration
-- Kubernetes deployment option
 - Enhanced monitoring and alerting
-
-## [Unreleased]
-
-### Added
-- **CLAUDE_CUSTOM.md:** New gitignored file for homelab-specific customizations
-- **CLAUDE_CUSTOM.example.md:** Detailed template for local Claude customizations
-- **Local Customizations Section:** Added to CLAUDE.md explaining the customization system
-
-### Changed
-- **CLAUDE.md:** Now public-ready with generalized examples (removed Dell-Server, HL16 references)
-- **.gitignore:** Updated to exclude CLAUDE_CUSTOM.md instead of CLAUDE.md
-- **README.md:** Updated setup instructions for CLAUDE_CUSTOM.md
-- **SECURITY.md:** Added guidance for Claude customization files
-
-### Improved
-- Separation of public documentation from homelab-specific details
-- Claude can now access project documentation on web and GitHub
-- Better security by keeping infrastructure details in separate gitignored file
-
-### Planned
-- Additional MCP servers (suggestions welcome!)
-- Advanced analytics and reporting features
 
 ---
 

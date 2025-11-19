@@ -174,20 +174,24 @@ class PiholeMCPServer:
                 description="Get DNS statistics from all Pi-hole instances",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get Pi-hole Statistics",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="pihole_get_status",
                 description="Check which Pi-hole instances are online",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get Pi-hole Status",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
         ]
 
@@ -322,20 +326,24 @@ async def handle_list_tools() -> list[types.Tool]:
             description="Get DNS statistics from all Pi-hole instances",
             inputSchema={"type": "object", "properties": {}},
             title="Get Pi-hole Statistics",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_pihole_status",
             description="Check which Pi-hole instances are online",
             inputSchema={"type": "object", "properties": {}},
             title="Get Pi-hole Status",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
     ]
 

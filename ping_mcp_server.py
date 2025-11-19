@@ -372,10 +372,12 @@ class PingMCPServer:
                     "required": ["hostname"],
                 },
                 title="Ping Host",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ping_ping_group",
@@ -401,10 +403,12 @@ class PingMCPServer:
                     "required": ["group"],
                 },
                 title="Ping Group",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ping_ping_all",
@@ -426,40 +430,48 @@ class PingMCPServer:
                     "required": [],
                 },
                 title="Ping All Hosts",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ping_list_groups",
                 description="List all available Ansible groups for pinging",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="List Ansible Groups",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ping_list_hosts",
                 description="List all hosts in the Ansible inventory with their resolved IPs",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="List Inventory Hosts",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="ping_reload_inventory",
                 description="Reload Ansible inventory from disk (useful after inventory changes)",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="Reload Inventory",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
         ]
 
@@ -508,10 +520,12 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["hostname"],
             },
             title="Ping Host",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="ping_group",
@@ -537,10 +551,12 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["group"],
             },
             title="Ping Group",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="ping_all",
@@ -562,40 +578,48 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": [],
             },
             title="Ping All Hosts",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="list_groups",
             description="List all available Ansible groups for pinging",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="List Ansible Groups",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="list_hosts",
             description="List all hosts in the Ansible inventory with their resolved IPs",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="List Inventory Hosts",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="reload_inventory",
             description="Reload Ansible inventory from disk (useful after inventory changes)",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="Reload Inventory",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
     ]
 

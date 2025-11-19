@@ -403,20 +403,24 @@ class DockerMCPServer:
                     "required": ["hostname"],
                 },
                 title="Get Containers on Host",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="docker_get_all_containers",
                 description="Get all containers across all hosts",
                 inputSchema={"type": "object", "properties": {}},
                 title="Get All Containers",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="docker_get_container_stats",
@@ -433,10 +437,12 @@ class DockerMCPServer:
                     "required": ["hostname"],
                 },
                 title="Get Container Stats",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="docker_check_container",
@@ -457,10 +463,12 @@ class DockerMCPServer:
                     "required": ["hostname", "container"],
                 },
                 title="Check Container Status",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="docker_find_containers_by_label",
@@ -484,10 +492,12 @@ class DockerMCPServer:
                     "required": ["label_key"],
                 },
                 title="Find Containers by Label",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
             types.Tool(
                 name="docker_get_container_labels",
@@ -508,10 +518,12 @@ class DockerMCPServer:
                     "required": ["hostname", "container"],
                 },
                 title="Get Container Labels",
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
             ),
         ]
 
@@ -553,20 +565,24 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["hostname"],
             },
             title="Get Containers on Host",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_all_containers",
             description="Get all containers across all hosts",
             inputSchema={"type": "object", "properties": {}},
             title="Get All Containers",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_container_stats",
@@ -583,10 +599,12 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["hostname"],
             },
             title="Get Container Stats",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="check_container",
@@ -607,10 +625,12 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["hostname", "container"],
             },
             title="Check Container Status",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="find_containers_by_label",
@@ -634,10 +654,12 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["label_key"],
             },
             title="Find Containers by Label",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
         types.Tool(
             name="get_container_labels",
@@ -658,10 +680,12 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["hostname", "container"],
             },
             title="Get Container Labels",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            annotations=types.ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            )
         ),
     ]
 
