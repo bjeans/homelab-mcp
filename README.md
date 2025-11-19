@@ -89,7 +89,7 @@ This README covers installation and basic setup. The project instructions provid
 
 ## 🎯 Deployment Options
 
-**Version 2.0.0+** offers two deployment modes:
+**Version 2.1.0+** offers two deployment modes (plus dynamic enum tool parameters):
 
 ### Unified Server (Recommended for New Deployments)
 
@@ -328,17 +328,20 @@ docker run -d \
   -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
   bjeans/homelab-mcp:latest
 
-# Or use a specific version
-docker pull bjeans/homelab-mcp:2.0.0
+# Or use a specific commit
+docker pull bjeans/homelab-mcp:main-17bae01
 ```
 
-**Available on Docker Hub:** https://hub.docker.com/r/bjeans/homelab-mcp
+**Available on Docker Hub:** https://hub.docker.com/r/bjeans/homelab-mcp/tags
 
-**Available tags:**
-- `latest` - Latest stable release from main branch
+**Currently available tags:**
+- `latest` - Latest stable release from main branch (recommended)
 - `edge` - Latest development build from main branch
-- `2.0.0`, `2.0`, `2` - Semantic versioning tags for releases
-- `<git-sha>` - Specific commit builds for traceability
+- `main-<git-sha>` - Specific commit builds for traceability (e.g., `main-17bae01`)
+
+**Semantic version tags (available after release):**
+- Version tags like `2.1.0`, `2.1`, `2` will be created when the `v2.1.0` Git release is published
+- Until then, use `latest` for the most recent stable build
 
 **Multi-platform support:**
 - `linux/amd64` - x86_64 servers and workstations
@@ -518,6 +521,38 @@ For comprehensive Docker deployment guide, see [DOCKER.md](DOCKER.md).
 
 
 ## 📦 Available MCP Servers
+
+### ✨ Dynamic Tool Parameter Enums (New in v2.1)
+
+When you configure Ansible inventory, Claude Desktop will automatically show your infrastructure options in dropdown menus. No more guessing hostnames or group names!
+
+**What gets auto-populated:**
+- **Ping tools** - Your Ansible groups appear in dropdown menus
+- **Docker tools** - Your Docker/Podman hosts shown in dropdowns
+- **Ollama tools** - Your Ollama server hostnames available for selection
+- **UPS tools** - Your NUT server hostnames shown in dropdowns
+
+**How it works:**
+1. Set `ANSIBLE_INVENTORY_PATH` in your `.env` file
+2. Restart Claude Desktop (required - enums load at startup)
+3. When using tools, Claude shows your actual infrastructure in dropdown menus instead of requiring manual entry
+
+**Important Notes:**
+- **Restart Required:** Changes to Ansible inventory require restarting Claude Desktop to update dropdown options
+- **Performance:** Enums generate once at startup - minimal impact even with large inventories (100+ hosts)
+- **Graceful Degradation:** If no Ansible inventory is configured, tools still work - you just won't see dropdown suggestions
+
+**Example before/after:**
+
+*Before:* "Which group should I ping?" → User manually types "webservers" (or guesses)
+*After:* "Which group should I ping?" → User selects from dropdown: `all`, `docker_hosts`, `webservers`, `databases`, etc.
+
+**Troubleshooting:**
+- **Dropdowns not showing?** Verify `ANSIBLE_INVENTORY_PATH` is set and restart Claude Desktop
+- **Wrong options showing?** Check that your Ansible inventory is up-to-date and restart Claude Desktop
+- **Performance issues?** Enum generation happens once at startup - if slow, check inventory file size and Ansible installation
+
+---
 
 ### MCP Registry Inspector
 

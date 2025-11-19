@@ -365,11 +365,12 @@ def format_labels_output(labels: Dict, indent: str = "  ") -> str:
 class DockerMCPServer:
     """Docker/Podman MCP Server - Class-based implementation"""
 
-    def __init__(self, ansible_inventory=None):
+    def __init__(self, ansible_inventory=None, ansible_config=None):
         """Initialize configuration using existing config loading logic
 
         Args:
             ansible_inventory: Optional pre-loaded Ansible inventory dict (for unified mode)
+            ansible_config: Optional AnsibleConfigManager instance (for enum generation)
         """
         # Load environment configuration (skip if in unified mode)
         if not os.getenv("MCP_UNIFIED_MODE"):
@@ -377,6 +378,9 @@ class DockerMCPServer:
 
         self.ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
         logger.info(f"[DockerMCPServer] Ansible inventory: {self.ansible_inventory_path}")
+
+        # Store config manager for future enum generation needs
+        self.ansible_config = ansible_config
 
         # Load container hosts (use pre-loaded inventory if provided)
         self.container_hosts = load_container_hosts_from_ansible(ansible_inventory)

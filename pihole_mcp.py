@@ -144,11 +144,14 @@ if __name__ == "__main__":
 class PiholeMCPServer:
     """Pi-hole MCP Server - Class-based implementation"""
 
-    def __init__(self, ansible_inventory=None):
+    def __init__(self, ansible_inventory=None, ansible_config=None):
         """Initialize configuration using existing config loading logic
 
         Args:
             ansible_inventory: Optional pre-loaded Ansible inventory dict (for unified mode)
+            ansible_config: Optional AnsibleConfigManager instance (for enum generation)
+                           Note: Not currently used as Pi-hole tools operate on all instances,
+                           but kept for consistency and future host-specific tools
         """
         # Load environment configuration (skip if in unified mode)
         if not os.getenv("MCP_UNIFIED_MODE"):
@@ -156,6 +159,9 @@ class PiholeMCPServer:
 
         self.ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
         logger.info(f"[PiholeMCPServer] Ansible inventory: {self.ansible_inventory_path}")
+
+        # Store config manager for future use (e.g., if we add host-specific tools)
+        self.ansible_config = ansible_config
 
         # Load Pi-hole hosts (use pre-loaded inventory if provided)
         self.pihole_hosts = load_pihole_hosts_from_ansible(ansible_inventory)

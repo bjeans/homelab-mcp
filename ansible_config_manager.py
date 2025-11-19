@@ -314,6 +314,148 @@ class AnsibleConfigManager:
             logger.error(f"Error getting all hosts with inheritance: {e}", exc_info=True)
             return {"hosts": {}, "groups": {}}
 
+    @staticmethod
+    def _normalize_hostname(hostname: str) -> str:
+        """
+        Normalize hostname for consistent display in enums.
+
+        This normalization ensures hostnames match what tools expect:
+        - Takes short hostname (before first dot)
+        - Converts to lowercase
+        - Replaces underscores with hyphens
+
+        Args:
+            hostname: Full hostname (e.g., 'server_1.example.com')
+
+        Returns:
+            Normalized hostname (e.g., 'server-1')
+
+        Examples:
+            >>> AnsibleConfigManager._normalize_hostname('Server_1.example.com')
+            'server-1'
+            >>> AnsibleConfigManager._normalize_hostname('web-01')
+            'web-01'
+        """
+        return hostname.split(".")[0].lower().replace("_", "-")
+
+    def _get_hosts_from_group(self, group_name: str) -> List[str]:
+        """
+        Get normalized hostnames from a specific Ansible group.
+
+        Args:
+            group_name: Name of the Ansible group
+
+        Returns:
+            Sorted list of normalized hostnames
+        """
+        if not self.is_available():
+            return []
+
+        try:
+            if group_name not in self.inventory.groups:
+                logger.debug(f"Group '{group_name}' not found in inventory")
+                return []
+
+            group = self.inventory.groups[group_name]
+            hosts = {self._normalize_hostname(host.name) for host in group.get_hosts()}
+            return sorted(list(hosts))
+        except Exception as e:
+            logger.error(f"Error getting hosts from group '{group_name}': {e}")
+            return []
+
+    def get_docker_hosts(self) -> List[str]:
+        """
+        Get hostnames with Docker or Podman API configured.
+
+        Returns:
+            Sorted list of normalized hostnames that have docker_api_port or podman_api_port defined
+
+        Note:
+            Performance: This method is lightweight and delegates to get_hosts_by_capability(),
+            which already benefits from Ansible's internal caching. Additional caching is not
+            needed since enum generation only happens once at MCP server startup (in list_tools()).
+        """
+        # Check for either docker_api_port or podman_api_port capability
+        docker_hosts = self.get_hosts_by_capability("docker_api_port")
+        podman_hosts = self.get_hosts_by_capability("podman_api_port")
+
+        # Combine and deduplicate
+        all_hosts = set(docker_hosts) | set(podman_hosts)
+        return sorted(list(all_hosts))
+
+    def get_ollama_hosts(self) -> List[str]:
+        """
+        Get hostnames in the ollama_servers group.
+
+        Returns:
+            Sorted list of normalized hostnames from ollama_servers group
+        """
+        return self._get_hosts_from_group("ollama_servers")
+
+    def get_pihole_hosts(self) -> List[str]:
+        """
+        Get hostnames with Pi-hole configured.
+
+        Returns:
+            Sorted list of normalized hostnames that have pihole_url defined
+        """
+        return self.get_hosts_by_capability("pihole_url")
+
+    def get_ups_hosts(self) -> List[str]:
+        """
+        Get hostnames in the nut_servers group (Network UPS Tools).
+
+        Returns:
+            Sorted list of normalized hostnames from nut_servers group
+        """
+        return self._get_hosts_from_group("nut_servers")
+
+    def get_all_groups(self) -> List[str]:
+        """
+        Get all Ansible group names.
+
+        Returns:
+            Sorted list of all group names in the inventory
+        """
+        if not self.is_available():
+            return []
+
+        try:
+            # Get all group names from the inventory
+            group_names = sorted(list(self.inventory.groups.keys()))
+            logger.debug(f"Found {len(group_names)} groups in inventory")
+            return group_names
+        except Exception as e:
+            logger.error(f"Error getting all groups: {e}")
+            return []
+
+    def get_hosts_by_capability(self, capability: str) -> List[str]:
+        """
+        Generic method to get hosts with a specific variable defined.
+
+        Args:
+            capability: Variable name to check for (e.g., 'docker_api_port', 'pihole_url')
+
+        Returns:
+            Sorted list of normalized hostnames that have the specified variable
+        """
+        if not self.is_available():
+            return []
+
+        try:
+            hosts = set()
+            all_hosts = self.inventory.get_hosts()
+
+            for host in all_hosts:
+                host_vars = self.variable_manager.get_vars(host=host)
+                if host_vars.get(capability):
+                    hosts.add(self._normalize_hostname(host.name))
+
+            return sorted(list(hosts))
+        except Exception as e:
+            logger.error(f"Error getting hosts by capability '{capability}': {e}")
+            return []
+
     def clear_cache(self):
         """Clear internal cache."""
         self._group_cache.clear()

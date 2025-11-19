@@ -321,11 +321,12 @@ def format_ping_result(result: Dict) -> str:
 class PingMCPServer:
     """Ping MCP Server - Class-based implementation"""
 
-    def __init__(self, ansible_inventory=None):
+    def __init__(self, ansible_inventory=None, ansible_config=None):
         """Initialize configuration using existing config loading logic
 
         Args:
             ansible_inventory: Optional pre-loaded Ansible inventory dict (for unified mode)
+            ansible_config: Optional AnsibleConfigManager instance (for enum generation)
         """
         # Load environment configuration (skip if in unified mode)
         if not os.getenv("MCP_UNIFIED_MODE"):
@@ -333,6 +334,9 @@ class PingMCPServer:
 
         self.ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
         logger.info(f"[PingMCPServer] Ansible inventory: {self.ansible_inventory_path}")
+
+        # Store config manager for enum generation
+        self.ansible_config = ansible_config
 
         # Load inventory (with caching)
         self.inventory_data = None
@@ -347,6 +351,19 @@ class PingMCPServer:
 
     async def list_tools(self) -> list[types.Tool]:
         """Return list of Tool objects this server provides (with ping_ prefix)"""
+        # Get dynamic enums from Ansible inventory
+        ansible_groups = []
+        if self.ansible_config and self.ansible_config.is_available():
+            ansible_groups = self.ansible_config.get_all_groups()
+
+        # Build group parameter schema with optional enum
+        group_property = {
+            "type": "string",
+            "description": "Ansible group name from your inventory",
+        }
+        if ansible_groups:
+            group_property["enum"] = ansible_groups
+
         return [
             types.Tool(
                 name="ping_ping_host",
@@ -385,10 +402,7 @@ class PingMCPServer:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "group": {
-                            "type": "string",
-                            "description": "Ansible group name (e.g., 'webservers', 'databases', 'docker_hosts')",
-                        },
+                        "group": group_property,
                         "count": {
                             "type": "integer",
                             "description": "Number of ping packets to send (default: 2)",
