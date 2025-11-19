@@ -69,6 +69,8 @@ jobs:
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
             # Git SHA for traceability
             type=sha,prefix={{branch}}-,enable={{is_default_branch}}
+            # PR builds get a dedicated tag for local scanning
+            type=ref,event=pr
           labels: |
             org.opencontainers.image.title=Homelab MCP Servers
             org.opencontainers.image.description=MCP servers for homelab infrastructure management
@@ -79,7 +81,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
@@ -87,6 +89,8 @@ jobs:
           load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          sbom: ${{ github.event_name != 'pull_request' }}
+          provenance: ${{ github.event_name != 'pull_request' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -100,7 +104,7 @@ jobs:
         uses: docker/scout-action@v1.15.1
         with:
           command: cves
-          image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          image: ${{ steps.meta.outputs.tags }}
           only-severities: critical,high
           sarif-file: sarif.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
