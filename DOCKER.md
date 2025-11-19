@@ -2,7 +2,9 @@
 
 This guide covers deploying the Homelab MCP servers using Docker containers.
 
-**Version 2.0.0:** The Docker image now defaults to unified mode (all 7 servers in one container) with automatic mode detection. The image is marketplace-ready and fully configurable via environment variables with no external dependencies. See [Configuration Methods](#configuration-methods) below.
+**Version 2.1.0:** The Docker image defaults to unified mode (all 7 servers in one container) with automatic mode detection and dynamic enum generation for tool parameters. The image is marketplace-ready and fully configurable via environment variables with no external dependencies. See [Configuration Methods](#configuration-methods) below.
+
+**Docker Hub:** Pre-built images available at https://hub.docker.com/r/bjeans/homelab-mcp/tags
 
 ## Quick Start
 
@@ -12,13 +14,27 @@ This guide covers deploying the Homelab MCP servers using Docker containers.
 - Network access to your homelab services
 - Ansible inventory file OR environment variables configured
 
-### Build the Container
+### Pull Pre-Built Image (Recommended)
+```bash
+# Pull the latest stable release from Docker Hub
+docker pull bjeans/homelab-mcp:latest
+
+# Or pull a specific commit build
+docker pull bjeans/homelab-mcp:main-17bae01
+```
+
+**Available tags:**
+- `latest` - Latest stable release from main branch (recommended)
+- `edge` - Latest development build
+- `main-<git-sha>` - Specific commit builds (e.g., `main-17bae01`)
+
+### Build from Source (For Customization)
 ```bash
 # Clone the repository
 git clone https://github.com/bjeans/homelab-mcp.git
 cd homelab-mcp
 
-# Build the Docker image
+# Build the Docker image locally
 docker build -t homelab-mcp:latest .
 ```
 
@@ -52,7 +68,7 @@ docker run -d \
   -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
   --stdin \
   --tty \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
 
 # Or using Environment Variables
 docker run -d \
@@ -63,7 +79,7 @@ docker run -d \
   -e PIHOLE_SERVER1_ENDPOINT=192.168.1.100:8053 \
   --stdin \
   --tty \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
 ```
 
 ### Run Legacy Mode (Individual Servers)
@@ -80,7 +96,7 @@ docker run -d \
   -v $(pwd)/ansible_hosts.yml:/config/ansible_hosts.yml:ro \
   --stdin \
   --tty \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
 
 # Using Environment Variables
 docker run -d \
@@ -91,7 +107,7 @@ docker run -d \
   -e DOCKER_SERVER2_ENDPOINT=192.168.1.101:2375 \
   --stdin \
   --tty \
-  homelab-mcp:latest
+  bjeans/homelab-mcp:latest
 ```
 
 ## Configuration

@@ -4,7 +4,7 @@
 
 **Repository:** <https://github.com/bjeans/homelab-mcp>
 **Docker Hub:** <https://hub.docker.com/r/bjeans/homelab-mcp>
-**Version:** 2.0.0 (Released: 2025-10-30)
+**Version:** 2.1.0 (Released: 2025-11-19)
 **License:** MIT
 **Purpose:** Open-source MCP servers for homelab infrastructure management through Claude Desktop
 
@@ -933,5 +933,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and best prac
 
 **Remember:** This project manages critical infrastructure. Security and reliability are paramount. Always test thoroughly and never commit sensitive data.
 
-**Last Updated:** October 30, 2025  
-**Current Version:** 2.0.0 (Containerized deployment with unified server)
+**Last Updated:** November 19, 2025
+**Current Version:** 2.1.0 (Dynamic enum generation for tool parameters)
