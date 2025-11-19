@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.1.0] - 2025-01-19
+## [2.1.0] - 2025-11-19
 
 ### Added
 - **Dynamic Enum Generation for Tool Parameters:** Automatic population of tool parameter enums based on Ansible inventory
@@ -17,10 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Works with Ping, Docker, Ollama, and UPS tools
 - **Hostname Normalization Helper:** Shared `_normalize_hostname()` method for consistent hostname formatting
 - **Group-based Host Lookup:** New `_get_hosts_from_group()` helper for cleaner code
-- **Test Coverage:** Added `test_ansible_config_enums.py` with comprehensive tests for enum generation methods
-  - Tests for hostname normalization edge cases
+- **Test Coverage:** Created `test_ansible_config_enums.py` with comprehensive tests for enum generation methods
+  - Tests for hostname normalization edge cases (FQDN, uppercase, underscores, mixed cases)
   - Tests for graceful degradation when Ansible is unavailable
   - Tests for enum method signatures and return types
+  - Note: Test file follows project conventions (gitignored per `.gitignore` line 60: `test_*.py`)
 
 ### Changed
 - **Code Refactoring:** Reduced code duplication in `ansible_config_manager.py`

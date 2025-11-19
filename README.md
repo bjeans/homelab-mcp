@@ -531,15 +531,23 @@ When you configure Ansible inventory, Claude Desktop will automatically show you
 
 **How it works:**
 1. Set `ANSIBLE_INVENTORY_PATH` in your `.env` file
-2. Restart Claude Desktop
+2. Restart Claude Desktop (required - enums load at startup)
 3. When using tools, Claude shows your actual infrastructure in dropdown menus instead of requiring manual entry
 
-**Graceful degradation:** If no Ansible inventory is configured, tools still work - you just won't see dropdown suggestions.
+**Important Notes:**
+- **Restart Required:** Changes to Ansible inventory require restarting Claude Desktop to update dropdown options
+- **Performance:** Enums generate once at startup - minimal impact even with large inventories (100+ hosts)
+- **Graceful Degradation:** If no Ansible inventory is configured, tools still work - you just won't see dropdown suggestions
 
 **Example before/after:**
 
 *Before:* "Which group should I ping?" → User manually types "webservers" (or guesses)
 *After:* "Which group should I ping?" → User selects from dropdown: `all`, `docker_hosts`, `webservers`, `databases`, etc.
+
+**Troubleshooting:**
+- **Dropdowns not showing?** Verify `ANSIBLE_INVENTORY_PATH` is set and restart Claude Desktop
+- **Wrong options showing?** Check that your Ansible inventory is up-to-date and restart Claude Desktop
+- **Performance issues?** Enum generation happens once at startup - if slow, check inventory file size and Ansible installation
 
 ---
 
