@@ -70,7 +70,7 @@ jobs:
             # Git SHA for traceability
             type=sha,prefix={{branch}}-,enable={{is_default_branch}}
             # PR builds get a dedicated tag for local scanning
-            type=ref,event=pr,enable={{github.event_name == 'pull_request'}}
+            type=ref,event=pr
           labels: |
             org.opencontainers.image.title=Homelab MCP Servers
             org.opencontainers.image.description=MCP servers for homelab infrastructure management
