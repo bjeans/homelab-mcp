@@ -100,7 +100,7 @@ jobs:
         uses: docker/scout-action@v1.15.1
         with:
           command: cves
-          image: ${{ steps.build.outputs.digest }}
+          image: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           only-severities: critical,high
           sarif-file: sarif.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
