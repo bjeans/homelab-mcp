@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2025-01-19
+
+### Added
+- **Dynamic Enum Generation for Tool Parameters:** Automatic population of tool parameter enums based on Ansible inventory
+  - Claude Desktop now shows actual infrastructure options in dropdown menus
+  - No more guessing or typing hostnames/group names manually
+  - Reduces errors by showing only valid options
+  - Works with Ping, Docker, Ollama, and UPS tools
+- **Hostname Normalization Helper:** Shared `_normalize_hostname()` method for consistent hostname formatting
+- **Group-based Host Lookup:** New `_get_hosts_from_group()` helper for cleaner code
+- **Test Coverage:** Added `test_ansible_config_enums.py` with comprehensive tests for enum generation methods
+  - Tests for hostname normalization edge cases
+  - Tests for graceful degradation when Ansible is unavailable
+  - Tests for enum method signatures and return types
+
+### Changed
+- **Code Refactoring:** Reduced code duplication in `ansible_config_manager.py`
+  - Refactored enum methods to use shared `get_hosts_by_capability()` and `_get_hosts_from_group()`
+  - Reduced approximately 100 lines of duplicated logic
+  - Improved maintainability and consistency
+- **MCP Server Updates:** All relevant servers now accept `ansible_config` parameter
+  - `ping_mcp_server.py`: Dynamic enums for Ansible groups in `ping_ping_group` tool
+  - `ollama_mcp.py`: Dynamic enums for Ollama hosts in `ollama_get_models` tool
+  - `ups_mcp_server.py`: Dynamic enums for NUT hosts in `ups_get_ups_details` tool
+  - `docker_mcp_podman.py`: Consistency update (already had enum support)
+  - `pihole_mcp.py`: Consistency update (prepared for future host-specific tools)
+- **Unified Server:** `homelab_unified_mcp.py` now creates and passes `AnsibleConfigManager` to all sub-servers
+
+### Improved
+- **User Experience:** Dropdown menus reduce manual entry and discovery tool calls
+- **Code Quality:** Centralized hostname normalization prevents inconsistencies
+- **Maintainability:** Shared helpers make adding new servers easier
+- **Documentation:** README.md includes new section explaining dynamic enum feature
+
+### Benefits
+- **Faster Workflow:** Select from dropdown instead of typing or calling discovery tools first
+- **Fewer Errors:** Can't typo hostnames anymore - only valid options shown
+- **Better Discoverability:** Users immediately see what infrastructure they have configured
+- **Graceful Degradation:** Works without Ansible inventory (just no enum suggestions)
+- **Performance:** Enums generated once at startup, not on every tool call
+
+## [2.0.0] - 2025-10-30
+
 ### Added
 - **Automated Docker Image Builds:** GitHub Actions workflow for automated Docker image publishing
   - Multi-platform support: `linux/amd64` and `linux/arm64`

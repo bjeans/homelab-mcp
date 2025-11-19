@@ -132,7 +132,10 @@ class UnifiedHomelabServer:
         )
 
         logger.info("Initializing Pi-hole MCP Server...")
-        self.pihole = PiholeMCPServer(ansible_inventory=shared_inventory)
+        self.pihole = PiholeMCPServer(
+            ansible_inventory=shared_inventory,
+            ansible_config=ansible_config
+        )
 
         logger.info("Initializing Unifi MCP Server...")
         self.unifi = UnifiMCPServer()  # Unifi doesn't use Ansible inventory
