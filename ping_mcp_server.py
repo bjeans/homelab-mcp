@@ -318,6 +318,43 @@ def format_ping_result(result: Dict) -> str:
     return "\n".join(output)
 
 
+def format_inventory_error(item_type: str, requested_name: str, inventory: dict, discovery_tool: str) -> str:
+    """
+    Format a helpful error message when a host/group is not found.
+    Shows first 10 available options + count of remaining, suggests discovery tool.
+    
+    Args:
+        item_type: "host" or "group"
+        requested_name: The name that was requested but not found
+        inventory: The full inventory dict
+        discovery_tool: Name of tool to suggest (e.g., "ping_list_hosts" or "ping_list_groups")
+    
+    Returns:
+        Formatted error message with suggestions
+    """
+    if item_type == "host":
+        available = sorted(inventory["hosts"].keys())
+        container_name = "hosts"
+    elif item_type == "group":
+        available = sorted(inventory["groups"].keys())
+        container_name = "groups"
+    else:
+        return f"Error: {item_type} '{requested_name}' not found in inventory"
+    
+    error_msg = f"Error: {item_type.capitalize()} '{requested_name}' not found in inventory.\n\n"
+    error_msg += f"Available {container_name} ({len(available)} total):\n"
+    
+    # Show first 10, then "and X more"
+    for item in available[:10]:
+        error_msg += f"  • {item}\n"
+    
+    if len(available) > 10:
+        error_msg += f"  • ... and {len(available) - 10} more\n"
+    
+    error_msg += f"\nRun '{discovery_tool}' to see all available {container_name}."
+    return error_msg
+
+
 class PingMCPServer:
     """Ping MCP Server - Class-based implementation"""
 
@@ -453,7 +490,7 @@ class PingMCPServer:
             ),
             types.Tool(
                 name="ping_list_groups",
-                description="List all available Ansible groups for pinging",
+                description="List all available Ansible groups for pinging (call this first to discover valid group names)",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="List Ansible Groups",
                 annotations=types.ToolAnnotations(
@@ -465,7 +502,7 @@ class PingMCPServer:
             ),
             types.Tool(
                 name="ping_list_hosts",
-                description="List all hosts in the Ansible inventory with their resolved IPs",
+                description="List all hosts in the Ansible inventory with their resolved IPs (call this first to discover valid hostnames)",
                 inputSchema={"type": "object", "properties": {}, "required": []},
                 title="List Inventory Hosts",
                 annotations=types.ToolAnnotations(
@@ -601,7 +638,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="list_groups",
-            description="List all available Ansible groups for pinging",
+            description="List all available Ansible groups for pinging (call this first to discover valid group names)",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="List Ansible Groups",
             annotations=types.ToolAnnotations(
@@ -613,7 +650,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="list_hosts",
-            description="List all hosts in the Ansible inventory with their resolved IPs",
+            description="List all hosts in the Ansible inventory with their resolved IPs (call this first to discover valid hostnames)",
             inputSchema={"type": "object", "properties": {}, "required": []},
             title="List Inventory Hosts",
             annotations=types.ToolAnnotations(
@@ -704,12 +741,8 @@ async def handle_call_tool_impl(
             timeout = arguments.get("timeout", 5)
 
             if hostname not in inventory["hosts"]:
-                return [
-                    types.TextContent(
-                        type="text",
-                        text=f"Error: Host '{hostname}' not found in inventory\nUse list_groups to see available hosts",
-                    )
-                ]
+                error_msg = format_inventory_error("host", hostname, inventory, "list_hosts")
+                return [types.TextContent(type="text", text=error_msg)]
 
             host_data = inventory["hosts"][hostname]
             target = get_host_ip(hostname, host_data)
@@ -736,12 +769,8 @@ async def handle_call_tool_impl(
             timeout = arguments.get("timeout", 3)
 
             if group_name not in inventory["groups"]:
-                return [
-                    types.TextContent(
-                        type="text",
-                        text=f"Error: Group '{group_name}' not found in inventory\nUse list_groups to see available groups",
-                    )
-                ]
+                error_msg = format_inventory_error("group", group_name, inventory, "list_groups")
+                return [types.TextContent(type="text", text=error_msg)]
 
             hostnames = inventory["groups"][group_name]
 
