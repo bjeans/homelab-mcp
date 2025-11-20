@@ -38,7 +38,8 @@ homelab-mcp/
 │
 ├── Unified Server
 │   ├── homelab_unified_mcp.py         # Combines all 7 servers
-│   └── mcp_config_loader.py           # Environment variable security
+│   ├── mcp_config_loader.py           # Environment variable security
+│   └── mcp_error_handler.py           # Centralized error handling
 │
 ├── Configuration & Examples
 │   ├── .env.example                   # Configuration template (gitignored)
@@ -405,6 +406,44 @@ elif name.startswith("minio_"):
 - Update CHANGELOG.md with version notes
 - Add host group to ansible_hosts.example.yml
 
+#### Step 7b: Update Dockerfile
+
+**CRITICAL:** All new Python files needed at runtime MUST be added to the Dockerfile:
+
+In `Dockerfile`:
+```dockerfile
+# Add your new server file
+COPY --chown=mcpuser:mcpuser minio_mcp_server.py .
+```
+
+**Verification:**
+```bash
+# Test Docker build locally
+docker build -t homelab-mcp:test .
+
+# Verify new file is in the image
+# NOTE: The following command will start the MCP server and hang indefinitely waiting for stdio input.
+# This is expected behavior for MCP servers. If you see the process hang, it means the file was found and started successfully.
+# Use Ctrl+C to exit.
+docker run --rm homelab-mcp:test python minio_mcp_server.py
+
+# Alternatively, you can use a timeout to run the server briefly:
+timeout 2 docker run --rm homelab-mcp:test python minio_mcp_server.py || [ $? -eq 124 ]
+
+# Or simply check that the file can be imported:
+docker run --rm homelab-mcp:test python -c "import minio_mcp_server"
+# If imports fail, you missed a dependency file!
+```
+
+**Common mistake:** Creating a new `.py` file but forgetting to add it to Dockerfile.
+This causes import errors in containerized deployments while working fine locally.
+
+**Files that DON'T need to be in Dockerfile:**
+- Test files in `tests/` directory
+- Helper scripts in `helpers/` directory
+- Example files (`*.example.*`)
+- Development-only utilities
+
 #### Step 8: Test
 ```bash
 # Test standalone mode
@@ -429,6 +468,62 @@ python minio_mcp_server.py
 6. **Update documentation** - README, docstrings, examples
 7. **Run pre_publish_check.py** before commit
 
+### Docker Integration Checklist
+
+**Every time you create or modify Python files**, verify Docker integration:
+
+#### When to Update Dockerfile
+
+**ALWAYS update when:**
+- ✅ Creating new MCP server file (e.g., `minio_mcp_server.py`)
+- ✅ Creating new shared module (e.g., `mcp_error_handler.py`, `ansible_config_manager.py`)
+- ✅ Adding any `.py` file imported by runtime code
+
+**NEVER update for:**
+- ❌ Test files in `tests/` directory
+- ❌ Helper scripts in `helpers/` directory
+- ❌ Example/template files (`*.example.*`)
+- ❌ Documentation files (`.md`)
+
+#### Docker Update Workflow
+
+```bash
+# 1. Add file to Dockerfile in an organized manner
+COPY --chown=mcpuser:mcpuser your_new_file.py .
+
+# 2. Test build locally
+docker build -t homelab-mcp:test .
+
+# 3. Test that imports work
+docker run --rm homelab-mcp:test python -c "import your_new_module"
+
+# 4. Test the unified server starts
+# This command will start the server and hang indefinitely waiting for MCP stdio input (this is expected behavior).
+# You should see no errors, and can use Ctrl+C to exit.
+docker run --rm homelab-mcp:test python homelab_unified_mcp.py
+
+# Alternatively, you can use a timeout to automatically exit after a few seconds:
+timeout 2 docker run --rm homelab-mcp:test python homelab_unified_mcp.py || [ $? -eq 124 ]
+
+# Or, for a quick import check (does not start the server):
+docker run --rm homelab-mcp:test bash -c "python -c 'import homelab_unified_mcp'"
+```
+
+#### Common Docker Mistakes
+
+**Mistake:** Adding Python file but forgetting Dockerfile
+- **Symptom:** Works locally, fails in Docker with `ModuleNotFoundError`
+- **Fix:** Add `COPY` line to Dockerfile
+- **Example:** PR #32 created `mcp_error_handler.py` but forgot Dockerfile (fixed in commit d84d5d8)
+
+**Mistake:** Adding to Dockerfile but not `requirements.txt`
+- **Symptom:** Docker build fails with import errors
+- **Fix:** Add missing package to `requirements.txt`
+
+**Mistake:** Testing only standalone, not unified mode in Docker
+- **Symptom:** Individual servers work but unified container fails
+- **Fix:** Test `homelab_unified_mcp.py` in Docker before committing
+
 ### Security Checklist
 
 Before any commit:
@@ -440,6 +535,9 @@ Before any commit:
 - [ ] `pre_publish_check.py` passes all checks
 - [ ] Git pre-push hook installed and working (`install_git_hook.py`)
 - [ ] No real infrastructure details in commit messages
+- [ ] All new runtime `.py` files added to Dockerfile
+- [ ] Docker build tested locally (`docker build -t homelab-mcp:test .`)
+- [ ] If adding dependencies, updated `requirements.txt`
 
 ### Git Workflow and Branch Protection
 
