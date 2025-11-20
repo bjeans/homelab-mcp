@@ -34,7 +34,7 @@ from mcp.server.models import InitializationOptions
 
 from ansible_config_manager import AnsibleConfigManager
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
-from mcp_error_handler import MCPErrorClassifier, log_error_with_context
+from mcp_error_handler import log_error_with_context
 
 server = Server("ups-monitor")
 

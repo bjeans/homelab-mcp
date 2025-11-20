@@ -26,7 +26,7 @@ from mcp.server.models import InitializationOptions
 
 from ansible_config_manager import AnsibleConfigManager
 from mcp_config_loader import load_env_file, load_indexed_env_vars, COMMON_ALLOWED_ENV_VARS
-from mcp_error_handler import MCPErrorClassifier, log_error_with_context
+from mcp_error_handler import log_error_with_context
 
 # Module-level initialization for standalone mode
 server = Server("docker-info")

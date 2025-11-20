@@ -376,7 +376,6 @@ async def pihole_api_request(
                     logger.warning(f"Session expired or invalid for {host} (HTTP 401)")
                     return None
                 else:
-                    response_text = await response.text()
                     log_error_with_context(
                         logger,
                         f"Pi-hole API request failed with HTTP {response.status}",

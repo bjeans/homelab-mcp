@@ -6,7 +6,7 @@ Provides centralized error handling and user-friendly error messages for MCP ser
 
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 
@@ -200,7 +200,7 @@ class MCPErrorClassifier:
 
         # Add technical details if provided
         if details:
-            timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             output += f"\nTechnical details: {details} (at {timestamp})\n"
 
         return output

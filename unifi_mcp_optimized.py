@@ -470,7 +470,7 @@ async def handle_call_tool_impl(
                 remediation="Check the logs for detailed error information. Ensure Unifi controller is configured correctly.",
                 details=str(e)
             )
-            log_error_with_context(logger, f"Error in tool {name}", error=e, context={"tool": name, "arguments": arguments}, exc_info=True)
+            log_error_with_context(logger, f"Error in tool {name}", error=e, context={"tool": name, "arguments": arguments})
             return [types.TextContent(type="text", text=error_msg)]
 
 

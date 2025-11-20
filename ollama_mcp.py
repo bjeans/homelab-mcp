@@ -487,7 +487,7 @@ async def handle_call_tool_impl(
                     details=str(e),
                     hostname=f"{litellm_host}:{litellm_port}"
                 )
-                log_error_with_context(logger, "LiteLLM check error", error=e, context={"host": litellm_host, "port": litellm_port}, exc_info=True)
+                log_error_with_context(logger, "LiteLLM check error", error=e, context={"host": litellm_host, "port": litellm_port})
                 return [types.TextContent(type="text", text=error_msg)]
 
     except Exception as e:
