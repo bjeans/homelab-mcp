@@ -157,7 +157,7 @@ class UnifiedHomelabServer:
     async def get_tool_catalog(self) -> list[types.TextContent]:
         """
         Generate a grouped catalog of all tools from unified server.
-        Returns both Markdown for human readability and raw JSON for programmatic use.
+        Returns a JSON object (as a string) containing both Markdown for human readability and raw JSON for programmatic use, with both formats embedded as fields.
         """
         catalog = await self._generate_tool_catalog()
         return [types.TextContent(
@@ -180,6 +180,16 @@ class UnifiedHomelabServer:
         all_tools.extend(await self.unifi.list_tools())
         all_tools.extend(await self.ups.list_tools())
 
+        # Add the catalog tool itself for completeness and discoverability
+        all_tools.append(types.Tool(
+            name="homelab_get_tool_catalog",
+            description="Get a grouped catalog of all available Homelab MCP tools, including this catalog tool itself.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ))
         # Group by prefix
         grouped = defaultdict(list)
         for tool in all_tools:
@@ -195,7 +205,7 @@ class UnifiedHomelabServer:
         for category in sorted(grouped.keys()):
             md_lines.append(f"## {category.capitalize()} Tools\n")
             for entry in sorted(grouped[category], key=lambda x: x["name"]):
-                md_lines.append(f"### {entry['name']}")
+                md_lines.append(f"### {entry['name']}\n")
                 md_lines.append(f"**Description:** {entry['description']}\n")
                 if entry["schema"] and "properties" in entry["schema"]:
                     md_lines.append("**Parameters:**")
@@ -231,7 +241,7 @@ class UnifiedHomelabServer:
             tools.append(types.Tool(
                 name="homelab_get_tool_catalog",
                 description="Lists all available tools grouped by category with descriptions and input schemas",
-                inputSchema={"type": "object", "properties": {}},
+                inputSchema={"type": "object", "properties": {}, "required": []},
                 title="Get Tool Catalog",
                 annotations=types.ToolAnnotations(
                     readOnlyHint=True,
@@ -287,10 +297,9 @@ class UnifiedHomelabServer:
         @self.app.list_resources()
         async def handle_list_resources() -> list[types.Resource]:
             """List all available resources"""
-            catalog_uri: AnyUrl = AnyUrl("homelab://catalog/tools")
             return [
                 types.Resource(
-                    uri=catalog_uri,
+                    uri="homelab://catalog/tools",
                     name="tool_catalog",
                     description="Catalog of all available tools grouped by category with descriptions and input schemas",
                     mimeType="application/json"
