@@ -422,8 +422,16 @@ COPY --chown=mcpuser:mcpuser minio_mcp_server.py .
 docker build -t homelab-mcp:test .
 
 # Verify new file is in the image
+# NOTE: The following command will start the MCP server and hang indefinitely waiting for stdio input.
+# This is expected behavior for MCP servers. If you see the process hang, it means the file was found and started successfully.
+# Use Ctrl+C to exit.
 docker run --rm homelab-mcp:test python minio_mcp_server.py
 
+# Alternatively, you can use a timeout to run the server briefly:
+timeout 2 docker run --rm homelab-mcp:test python minio_mcp_server.py || [ $? -eq 124 ]
+
+# Or simply check that the file can be imported:
+docker run --rm homelab-mcp:test python -c "import minio_mcp_server"
 # If imports fail, you missed a dependency file!
 ```
 
@@ -480,7 +488,7 @@ python minio_mcp_server.py
 #### Docker Update Workflow
 
 ```bash
-# 1. Add file to Dockerfile (alphabetically ordered)
+# 1. Add file to Dockerfile in an organized manner
 COPY --chown=mcpuser:mcpuser your_new_file.py .
 
 # 2. Test build locally
@@ -490,7 +498,15 @@ docker build -t homelab-mcp:test .
 docker run --rm homelab-mcp:test python -c "import your_new_module"
 
 # 4. Test the unified server starts
+# This command will start the server and hang indefinitely waiting for MCP stdio input (this is expected behavior).
+# You should see no errors, and can use Ctrl+C to exit.
 docker run --rm homelab-mcp:test python homelab_unified_mcp.py
+
+# Alternatively, you can use a timeout to automatically exit after a few seconds:
+timeout 2 docker run --rm homelab-mcp:test python homelab_unified_mcp.py || [ $? -eq 124 ]
+
+# Or, for a quick import check (does not start the server):
+docker run --rm homelab-mcp:test bash -c "python -c 'import homelab_unified_mcp'"
 ```
 
 #### Common Docker Mistakes
