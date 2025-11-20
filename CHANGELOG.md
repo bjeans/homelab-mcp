@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2025-11-20
+
+### Added
+- **Centralized Error Handling System:** New `mcp_error_handler.py` module providing consistent error handling across all MCP servers
+  - `MCPErrorClassifier` class with HTTP status code classification and error pattern matching
+  - User-friendly error message formatting with actionable remediation steps
+  - Structured logging with automatic sensitive data sanitization
+  - Context-aware error messages including hostname, port, and service details
+- **Enhanced Error Messages:** All API errors now include:
+  - Clear error type identification (Authentication Failed, Connection Failed, Timeout, etc.)
+  - Specific HTTP status codes (401, 403, 404, 500, 503, etc.)
+  - Hostname/endpoint information
+  - Actionable remediation guidance (→ symbol for visibility)
+  - Technical details with timestamps for debugging
+  - No exposure of sensitive credentials in error messages
+- **Comprehensive Troubleshooting Documentation:** New section in README.md with:
+  - Error message format explanation
+  - Common error types with examples (Authentication, Connection, Timeout, etc.)
+  - Step-by-step remediation guides for each error type
+  - Before/after examples showing improvement from v2.1.0 to v2.2.0
+  - Debugging tips and direct API testing commands
+  - Configuration validation commands
+
+### Changed
+- **Pi-hole MCP Server (`pihole_mcp.py`):** Enhanced error handling in authentication and API requests
+  - Specific handling for 401 (Invalid Password) vs 403 (Insufficient Permissions)
+  - Detailed session authentication error messages with Pi-hole Settings guidance
+  - Improved timeout and connection error messages with troubleshooting commands
+  - Context logging for all API failures
+- **Unifi MCP Server (`unifi_mcp_optimized.py`):** **CRITICAL FIX** for "Exporter failed with code 1" issue (#32)
+  - Parse subprocess stderr to identify specific error patterns (auth, connection, timeout, certificate)
+  - Map exit codes to specific error types with remediation
+  - Pre-flight validation for missing API keys with helpful guidance
+  - Distinguish between invalid API key (401) and connection failures
+  - Include exporter output in error messages for debugging
+  - Guidance on where to find/generate Unifi API keys
+- **Ollama MCP Server (`ollama_mcp.py`):** Improved error classification for Ollama and LiteLLM
+  - HTTP status code differentiation (401, 404, 429, 500)
+  - Enhanced LiteLLM proxy error handling with rate limit detection
+  - Specific guidance for authentication and service availability
+  - Context logging for all API failures
+- **Docker/Podman MCP Server (`docker_mcp_podman.py`):** Better container runtime error messages
+  - Distinguish between authentication (401), not found (404), and server errors (500)
+  - Socket connection failures with clear guidance
+  - Context logging for debugging container API issues
+- **UPS MCP Server (`ups_mcp_server.py`):** Enhanced NUT protocol error handling
+  - Network error classification (timeout, connection refused, OSError)
+  - Context logging for all NUT server communication failures
+  - Improved debugging information for UPS monitoring issues
+
+### Improved
+- **User Experience:** Error messages now guide users to the exact fix instead of generic "failed" messages
+- **Security:** All sensitive data (API keys, passwords, tokens, session IDs) automatically sanitized in logs
+- **Debugging:** Structured logging with full context (host, port, endpoint, status code) for all errors
+- **Documentation:** Comprehensive troubleshooting guide reduces support requests
+- **Developer Experience:** Consistent error handling pattern across all servers makes adding new servers easier
+
+### Fixed
+- **Issue #32:** "Exporter failed with code 1" error now provides specific details:
+  - Invalid API key detection with Unifi Settings guidance
+  - Connection failure detection with network troubleshooting commands
+  - Timeout detection with service health check guidance
+  - Certificate error detection with SSL troubleshooting
+  - No more ambiguous exit codes - users know exactly what went wrong
+- **Error Message Inconsistency:** All servers now use standardized error format
+- **Missing Context:** Errors now include all relevant debugging information (timestamp, host, status)
+- **Credential Exposure:** Sensitive data no longer appears in error messages or logs
+
+### Technical Details
+- HTTP error codes properly classified: 400, 401, 403, 404, 429, 500, 502, 503, 504
+- Error pattern matching with regex for common issues (invalid API key, connection refused, timeout, certificate errors)
+- Automatic sensitive data sanitization using configurable regex patterns
+- Context-aware logging that preserves debugging information while protecting credentials
+- Backward compatible - existing code continues to work, but with better error messages
+
 ## [2.1.0] - 2025-11-19
 
 ### Added

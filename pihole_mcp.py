@@ -28,6 +28,7 @@ from mcp.server.models import InitializationOptions
 
 from ansible_config_manager import load_group_hosts
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
+from mcp_error_handler import MCPErrorClassifier, log_error_with_context
 
 server = Server("pihole-info")
 
@@ -242,17 +243,75 @@ async def get_pihole_session(host: str, port: int, password: str) -> dict:
                         return {"sid": session_data["sid"], "expires_at": expires_at}
                     else:
                         message = session_data.get("message", "Authentication failed")
-                        return {"error": f"Auth failed: {message}"}
+                        error_msg = MCPErrorClassifier.format_error_message(
+                            service_name="Pi-hole",
+                            error_type="Authentication Failed",
+                            message=f"Invalid password for {host}",
+                            remediation=f"Verify the API password matches your Pi-hole admin password. You can find/reset this in Pi-hole Settings > API.",
+                            details=message,
+                            hostname=f"{host}:{port}"
+                        )
+                        return {"error": error_msg}
+                elif response.status == 401:
+                    # Specific handling for 401 Unauthorized
+                    error_msg = MCPErrorClassifier.format_http_error(
+                        service_name="Pi-hole",
+                        status_code=401,
+                        hostname=f"{host}:{port}",
+                        custom_remediation=f"Invalid API password. Check the PIHOLE_API_KEY environment variable matches your Pi-hole admin password."
+                    )
+                    log_error_with_context(logger, "Pi-hole authentication failed", context={"host": host, "port": port, "status": 401})
+                    return {"error": error_msg}
+                elif response.status == 403:
+                    # Specific handling for 403 Forbidden
+                    error_msg = MCPErrorClassifier.format_http_error(
+                        service_name="Pi-hole",
+                        status_code=403,
+                        hostname=f"{host}:{port}",
+                        custom_remediation="Valid credentials but insufficient permissions. Ensure the account has admin privileges."
+                    )
+                    log_error_with_context(logger, "Pi-hole authorization failed", context={"host": host, "port": port, "status": 403})
+                    return {"error": error_msg}
                 else:
+                    # Generic HTTP error handling
                     text = await response.text()
-                    return {"error": f"HTTP {response.status}: {text[:100]}"}
+                    error_msg = MCPErrorClassifier.format_http_error(
+                        service_name="Pi-hole",
+                        status_code=response.status,
+                        response_text=text,
+                        hostname=f"{host}:{port}"
+                    )
+                    log_error_with_context(logger, f"Pi-hole HTTP error {response.status}", context={"host": host, "port": port, "status": response.status})
+                    return {"error": error_msg}
 
     except asyncio.TimeoutError:
-        return {"error": "Connection timeout"}
-    except aiohttp.ClientConnectorError:
-        return {"error": "Connection refused"}
+        error_msg = MCPErrorClassifier.format_timeout_error(
+            service_name="Pi-hole",
+            hostname=host,
+            port=port,
+            timeout_seconds=5
+        )
+        log_error_with_context(logger, "Pi-hole connection timeout", context={"host": host, "port": port})
+        return {"error": error_msg}
+    except aiohttp.ClientConnectorError as e:
+        error_msg = MCPErrorClassifier.format_connection_error(
+            service_name="Pi-hole",
+            hostname=host,
+            port=port,
+            additional_guidance="Check if Pi-hole service is running: systemctl status pihole-FTL"
+        )
+        log_error_with_context(logger, "Pi-hole connection refused", error=e, context={"host": host, "port": port})
+        return {"error": error_msg}
     except Exception as e:
-        return {"error": f"Exception: {str(e)}"}
+        error_msg = MCPErrorClassifier.format_error_message(
+            service_name="Pi-hole",
+            error_type="Unexpected Error",
+            message=f"Failed to connect to Pi-hole at {host}:{port}",
+            remediation="Check the error details and ensure Pi-hole is accessible.",
+            details=str(e)
+        )
+        log_error_with_context(logger, "Pi-hole unexpected error", error=e, context={"host": host, "port": port})
+        return {"error": error_msg}
 
 
 async def get_cached_session(
@@ -298,6 +357,9 @@ async def pihole_api_request(
     Make an authenticated request to Pi-hole API using session ID
 
     Uses URL query parameter method: ?sid=<SID>
+
+    Returns:
+        JSON data on success, None on failure
     """
     # URL-encode the SID
     encoded_sid = quote(sid)
@@ -310,16 +372,38 @@ async def pihole_api_request(
             ) as response:
                 if response.status == 200:
                     return await response.json()
+                elif response.status == 401:
+                    logger.warning(f"Session expired or invalid for {host} (HTTP 401)")
+                    return None
                 else:
-                    logger.warning(
-                        f"API request failed: HTTP {response.status} for {url}"
+                    log_error_with_context(
+                        logger,
+                        f"Pi-hole API request failed with HTTP {response.status}",
+                        context={"host": host, "port": port, "endpoint": endpoint, "status": response.status}
                     )
                     return None
     except asyncio.TimeoutError:
-        logger.warning(f"Timeout requesting {url}")
+        log_error_with_context(
+            logger,
+            "Pi-hole API request timeout",
+            context={"host": host, "port": port, "endpoint": endpoint, "timeout": timeout}
+        )
+        return None
+    except aiohttp.ClientConnectorError as e:
+        log_error_with_context(
+            logger,
+            "Pi-hole API connection failed",
+            error=e,
+            context={"host": host, "port": port, "endpoint": endpoint}
+        )
         return None
     except Exception as e:
-        logger.warning(f"Error requesting {url}: {str(e)}")
+        log_error_with_context(
+            logger,
+            "Pi-hole API request error",
+            error=e,
+            context={"host": host, "port": port, "endpoint": endpoint}
+        )
         return None
 
 
@@ -426,8 +510,15 @@ async def handle_call_tool_impl(
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
 
     except Exception as e:
-        logger.error(f"Error in tool {name}: {str(e)}")
-        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+        error_msg = MCPErrorClassifier.format_error_message(
+            service_name="Pi-hole",
+            error_type="Tool Execution Error",
+            message=f"Failed to execute tool '{name}'",
+            remediation="Check the logs for detailed error information. Ensure Pi-hole instances are configured correctly.",
+            details=str(e)
+        )
+        log_error_with_context(logger, f"Error in tool {name}", error=e, context={"tool": name, "arguments": arguments})
+        return [types.TextContent(type="text", text=error_msg)]
 
 
 @server.call_tool()

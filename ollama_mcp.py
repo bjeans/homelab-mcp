@@ -25,6 +25,7 @@ from mcp.server.models import InitializationOptions
 
 from ansible_config_manager import load_group_hosts
 from mcp_config_loader import COMMON_ALLOWED_ENV_VARS, load_env_file
+from mcp_error_handler import MCPErrorClassifier, log_error_with_context
 
 server = Server("ollama-info")
 
@@ -235,7 +236,17 @@ class OllamaMCPServer:
 
 
 async def ollama_request(host_ip: str, endpoint: str, port: int = 11434, timeout: int = 5):
-    """Make request to Ollama API"""
+    """Make request to Ollama API
+
+    Args:
+        host_ip: Ollama host IP address
+        endpoint: API endpoint (e.g., /api/tags)
+        port: Ollama port (default 11434)
+        timeout: Request timeout in seconds
+
+    Returns:
+        JSON response data on success, None on failure
+    """
     url = f"http://{host_ip}:{port}{endpoint}"
     try:
         async with aiohttp.ClientSession() as session:
@@ -244,9 +255,39 @@ async def ollama_request(host_ip: str, endpoint: str, port: int = 11434, timeout
             ) as response:
                 if response.status == 200:
                     return await response.json()
-                return None
+                elif response.status == 401:
+                    logger.warning(f"Ollama API authentication required at {host_ip}:{port} (HTTP 401)")
+                    return None
+                elif response.status == 404:
+                    logger.warning(f"Ollama endpoint not found: {endpoint} at {host_ip}:{port} (HTTP 404)")
+                    return None
+                elif response.status == 500:
+                    logger.warning(f"Ollama server error at {host_ip}:{port} (HTTP 500)")
+                    return None
+                else:
+                    log_error_with_context(
+                        logger,
+                        f"Ollama API request failed with HTTP {response.status}",
+                        context={"host": host_ip, "port": port, "endpoint": endpoint, "status": response.status}
+                    )
+                    return None
+    except asyncio.TimeoutError:
+        log_error_with_context(
+            logger,
+            f"Ollama request timeout after {timeout}s",
+            context={"host": host_ip, "port": port, "endpoint": endpoint, "timeout": timeout}
+        )
+        return None
+    except aiohttp.ClientConnectorError as e:
+        logger.debug(f"Ollama connection failed for {host_ip}:{port} - service may be offline")
+        return None
     except Exception as e:
-        logger.debug(f"Ollama request failed for {host_ip}: {e}")
+        log_error_with_context(
+            logger,
+            f"Ollama request error",
+            error=e,
+            context={"host": host_ip, "port": port, "endpoint": endpoint}
+        )
         return None
 
 
@@ -382,38 +423,83 @@ async def handle_call_tool_impl(
                             output += f"Endpoint: {litellm_host}:{litellm_port}\n\n"
                             output += f"Liveliness Check: {data}"
                             return [types.TextContent(type="text", text=output)]
+                        elif response.status == 401:
+                            error_msg = MCPErrorClassifier.format_http_error(
+                                service_name="LiteLLM Proxy",
+                                status_code=401,
+                                hostname=f"{litellm_host}:{litellm_port}",
+                                custom_remediation="LiteLLM requires authentication. Configure API key if authentication is enabled."
+                            )
+                            return [types.TextContent(type="text", text=error_msg)]
+                        elif response.status == 429:
+                            error_msg = MCPErrorClassifier.format_http_error(
+                                service_name="LiteLLM Proxy",
+                                status_code=429,
+                                hostname=f"{litellm_host}:{litellm_port}",
+                                custom_remediation="Rate limit exceeded. Wait a few moments before retrying."
+                            )
+                            return [types.TextContent(type="text", text=error_msg)]
                         else:
-                            return [
-                                types.TextContent(
-                                    type="text",
-                                    text=f"✗ LiteLLM Proxy: HTTP {response.status}\nEndpoint: {url}",
-                                )
-                            ]
+                            error_msg = MCPErrorClassifier.format_http_error(
+                                service_name="LiteLLM Proxy",
+                                status_code=response.status,
+                                hostname=f"{litellm_host}:{litellm_port}"
+                            )
+                            log_error_with_context(
+                                logger,
+                                f"LiteLLM returned HTTP {response.status}",
+                                context={"host": litellm_host, "port": litellm_port, "status": response.status}
+                            )
+                            return [types.TextContent(type="text", text=error_msg)]
             except asyncio.TimeoutError:
-                return [
-                    types.TextContent(
-                        type="text",
-                        text=f"✗ LiteLLM Proxy: TIMEOUT\nEndpoint: {url}\nConnection timed out after 5 seconds",
-                    )
-                ]
+                error_msg = MCPErrorClassifier.format_timeout_error(
+                    service_name="LiteLLM Proxy",
+                    hostname=litellm_host,
+                    port=int(litellm_port),
+                    timeout_seconds=5
+                )
+                log_error_with_context(
+                    logger,
+                    "LiteLLM connection timeout",
+                    context={"host": litellm_host, "port": litellm_port}
+                )
+                return [types.TextContent(type="text", text=error_msg)]
             except aiohttp.ClientConnectorError as e:
-                return [
-                    types.TextContent(
-                        type="text",
-                        text=f"✗ LiteLLM Proxy: CONNECTION REFUSED\nEndpoint: {url}\nError: {str(e)}",
-                    )
-                ]
+                error_msg = MCPErrorClassifier.format_connection_error(
+                    service_name="LiteLLM Proxy",
+                    hostname=litellm_host,
+                    port=int(litellm_port),
+                    additional_guidance="Ensure LiteLLM proxy is running. Check: docker ps | grep litellm"
+                )
+                log_error_with_context(
+                    logger,
+                    "LiteLLM connection refused",
+                    error=e,
+                    context={"host": litellm_host, "port": litellm_port}
+                )
+                return [types.TextContent(type="text", text=error_msg)]
             except Exception as e:
-                logger.error(f"LiteLLM check error: {e}", exc_info=True)
-                return [
-                    types.TextContent(
-                        type="text",
-                        text=f"✗ LiteLLM Proxy: ERROR\nEndpoint: {url}\nError: {str(e)}",
-                    )
-                ]
+                error_msg = MCPErrorClassifier.format_error_message(
+                    service_name="LiteLLM Proxy",
+                    error_type="Unexpected Error",
+                    message=f"Failed to check LiteLLM status",
+                    remediation="Check the error details and ensure LiteLLM proxy is accessible.",
+                    details=str(e),
+                    hostname=f"{litellm_host}:{litellm_port}"
+                )
+                log_error_with_context(logger, "LiteLLM check error", error=e, context={"host": litellm_host, "port": litellm_port})
+                return [types.TextContent(type="text", text=error_msg)]
 
     except Exception as e:
-        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+        error_msg = MCPErrorClassifier.format_error_message(
+            service_name="Ollama",
+            error_type="Tool Execution Error",
+            message=f"Failed to execute tool '{name}'",
+            remediation="Check the logs for detailed error information. Ensure Ollama instances are configured correctly.",
+            details=str(e)
+        )
+        log_error_with_context(logger, f"Error in tool {name}", error=e, context={"tool": name, "arguments": arguments})
+        return [types.TextContent(type="text", text=error_msg)]
 
 
 @server.call_tool()
