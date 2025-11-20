@@ -1315,6 +1315,184 @@ curl "http://your-pihole/api/stats/summary?sid=YOUR_API_KEY"
 curl http://your-host:11434/api/tags
 ```
 
+### Understanding Error Messages
+
+**Error Message Format (v2.2.0+):**
+
+All MCP servers now provide detailed, actionable error messages in this format:
+
+```
+✗ [Service] [Error Type] (HTTP Status)
+
+[Specific problem description]
+
+Host: [hostname:port]
+
+→ [Actionable remediation steps]
+
+Technical details: [error details] (timestamp)
+```
+
+**Common Error Types:**
+
+#### 1. Authentication Failed (401)
+
+**Example:**
+```
+✗ Pi-hole Authentication Failed (401)
+
+Invalid API key for pi-hole-1
+
+Host: 192.168.1.5:80
+
+→ Verify PIHOLE_API_KEY_PI_HOLE_1 in .env matches your Pi-hole admin password.
+→ You can find/reset this in Pi-hole Settings > API.
+```
+
+**How to Fix:**
+1. Check your `.env` file for the correct API key variable
+2. Verify the API key matches the service's admin panel
+3. For Pi-hole: Settings > API > Show API token
+4. For Unifi: Settings > Admins > API > Generate key
+
+#### 2. Connection Failed
+
+**Example:**
+```
+✗ Unifi Connection Failed
+
+Unable to connect to unifi-controller:443
+
+Host: unifi-controller:443
+
+→ Ensure Unifi controller is running and accessible at unifi-controller:443.
+→ Test connectivity: nc -zv unifi-controller 443
+→ Check firewall: sudo iptables -L | grep 443
+```
+
+**How to Fix:**
+1. Verify the service is running: `systemctl status [service-name]`
+2. Test network connectivity with `nc` or `telnet`
+3. Check firewall rules allow access to the port
+4. Verify the hostname/IP is correct in your configuration
+
+#### 3. Timeout Errors
+
+**Example:**
+```
+✗ Ollama Timeout
+
+Connection to ollama-1:11434 timed out (after 5s)
+
+Host: ollama-1:11434
+
+→ The service is not responding. Check if Ollama is running and not overloaded.
+→ Check service status and logs for performance issues.
+```
+
+**How to Fix:**
+1. Check if the service is running: `systemctl status ollama`
+2. Look for performance issues in service logs
+3. Verify network latency: `ping [hostname]`
+4. Consider increasing timeout values if service is legitimately slow
+
+#### 4. Invalid/Expired Credentials (403)
+
+**Example:**
+```
+✗ Service Authorization Failed (403)
+
+Valid credentials but insufficient permissions
+
+→ Ensure the API key/account has the required permissions for this operation.
+```
+
+**How to Fix:**
+1. Check account permissions in the service admin panel
+2. Ensure the API key has admin/full access rights
+3. Regenerate API key if permissions were recently changed
+
+#### 5. Unifi Exporter Errors
+
+**Before (v2.1.0):**
+```
+Error: Exporter failed with code 1
+```
+
+**After (v2.2.0):**
+```
+✗ Unifi Authentication Failed
+
+Invalid Unifi API key for unifi-controller
+
+Host: unifi-controller
+
+→ Verify UNIFI_API_KEY in .env matches the API key from Unifi Settings > Admins > API.
+→ Ensure the key has not expired.
+
+Technical details: 401 Unauthorized (at 2025-11-20T10:30:45Z)
+```
+
+**How to Fix:**
+1. Log into Unifi controller
+2. Navigate to Settings > Admins > API
+3. Verify or regenerate API key
+4. Update `UNIFI_API_KEY` in `.env` file
+5. Restart Claude Desktop to reload configuration
+
+#### 6. Service Unavailable (503)
+
+**How to Fix:**
+1. Check if the service is running
+2. Look for service startup errors in logs
+3. Verify all dependencies are available
+4. Consider restarting the service
+
+### Debugging Tips
+
+**Enable Detailed Logging:**
+
+All errors are logged to stderr with full context. Check Claude Desktop logs:
+
+- **Windows:** `%APPDATA%\Claude\logs\`
+- **Mac:** `~/Library/Logs/Claude/`
+- **Linux:** `~/.config/Claude/logs/`
+
+**Test API Endpoints Directly:**
+
+Use `curl` or `httpie` to test API endpoints outside of MCP:
+
+```bash
+# Pi-hole
+curl "http://pi-hole:80/api/stats/summary?sid=YOUR_API_KEY"
+
+# Docker
+curl http://docker-host:2375/containers/json
+
+# Unifi (requires SSL and API key)
+curl -k -H "X-API-KEY: YOUR_KEY" https://unifi:443/api/stat/sta
+
+# Ollama
+curl http://ollama:11434/api/tags
+
+# NUT (Network UPS Tools)
+telnet nut-server 3493
+> LIST UPS
+```
+
+**Check Configuration:**
+
+```bash
+# Verify .env file exists and is readable
+ls -la .env
+
+# Check for syntax errors in .env
+cat .env | grep -v '^#' | grep -v '^$'
+
+# Verify Ansible inventory
+ansible-inventory -i ansible_hosts.yml --list
+```
+
 ### Import Errors
 
 If you get Python import errors:

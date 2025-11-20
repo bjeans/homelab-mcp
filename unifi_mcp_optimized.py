@@ -25,6 +25,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
+from mcp_error_handler import MCPErrorClassifier, log_error_with_context
 
 server = Server("unifi-network")
 
@@ -183,15 +184,35 @@ def save_cached_data(data, cache_dir: Path):
 
 
 async def fetch_unifi_data(exporter_path: Path, unifi_host: str, unifi_api_key: str, cache_dir: Path):
-    """Fetch fresh data from Unifi exporter"""
+    """Fetch fresh data from Unifi exporter
+
+    Raises:
+        FileNotFoundError: If exporter script not found
+        ValueError: If API key not configured
+        RuntimeError: If exporter fails with detailed error message
+    """
     if not exporter_path.exists():
-        raise FileNotFoundError(f"Exporter not found at {exporter_path}")
+        error_msg = MCPErrorClassifier.format_error_message(
+            service_name="Unifi",
+            error_type="Configuration Error",
+            message=f"Unifi exporter script not found",
+            remediation=f"Ensure unifi_exporter.py exists in the project directory at {exporter_path.parent}",
+            details=f"Expected path: {exporter_path}"
+        )
+        raise FileNotFoundError(error_msg)
 
     if not unifi_api_key:
-        raise ValueError("UNIFI_API_KEY not set")
+        error_msg = MCPErrorClassifier.format_error_message(
+            service_name="Unifi",
+            error_type="Configuration Error",
+            message="UNIFI_API_KEY environment variable not set",
+            remediation="Set UNIFI_API_KEY in your .env file. Generate an API key in Unifi Settings > Admins > API.",
+            details="API key is required to authenticate with Unifi controller"
+        )
+        raise ValueError(error_msg)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        logger.info(f"Running Unifi exporter...")
+        logger.info(f"Running Unifi exporter for {unifi_host}...")
 
         # Fix Windows console encoding issues
         env = os.environ.copy()
@@ -228,21 +249,98 @@ async def fetch_unifi_data(exporter_path: Path, unifi_host: str, unifi_api_key: 
             stdout, stderr = process.communicate(timeout=30)
 
             if process.returncode != 0:
-                logger.error(f"Exporter failed: {stderr}")
-                raise RuntimeError(f"Exporter failed with code {process.returncode}")
+                # Parse stderr to identify specific error types
+                stderr_lower = stderr.lower()
+
+                # Classify error based on stderr content
+                error_classification = MCPErrorClassifier.classify_text_error(stderr)
+
+                if error_classification:
+                    # Known error pattern detected
+                    error_msg = MCPErrorClassifier.format_error_message(
+                        service_name="Unifi",
+                        error_type=error_classification["type"],
+                        message=f"Unifi exporter failed (exit code {process.returncode})",
+                        remediation=error_classification["remediation"],
+                        details=stderr.strip()[:500],  # Limit stderr output
+                        hostname=unifi_host
+                    )
+                elif "401" in stderr or "unauthorized" in stderr_lower:
+                    # API authentication error
+                    error_msg = MCPErrorClassifier.format_error_message(
+                        service_name="Unifi",
+                        error_type="Authentication Failed",
+                        message=f"Invalid Unifi API key for {unifi_host}",
+                        remediation="Verify UNIFI_API_KEY in .env matches the API key from Unifi Settings > Admins > API. Ensure the key has not expired.",
+                        details=stderr.strip()[:500],
+                        hostname=unifi_host
+                    )
+                elif "connection refused" in stderr_lower or "failed to connect" in stderr_lower:
+                    # Connection error
+                    error_msg = MCPErrorClassifier.format_connection_error(
+                        service_name="Unifi",
+                        hostname=unifi_host,
+                        port=443,  # Default Unifi port
+                        additional_guidance="Ensure Unifi controller is running and accessible. Check UNIFI_HOST setting."
+                    )
+                    error_msg += f"\n\nExporter output: {stderr.strip()[:500]}"
+                elif "timeout" in stderr_lower or "timed out" in stderr_lower:
+                    # Timeout error
+                    error_msg = MCPErrorClassifier.format_timeout_error(
+                        service_name="Unifi",
+                        hostname=unifi_host,
+                        port=443,
+                        timeout_seconds=30
+                    )
+                    error_msg += f"\n\nExporter output: {stderr.strip()[:500]}"
+                else:
+                    # Generic error with return code context
+                    error_msg = MCPErrorClassifier.format_error_message(
+                        service_name="Unifi",
+                        error_type=f"Exporter Failed (Code {process.returncode})",
+                        message=f"Unifi exporter process failed",
+                        remediation="Check the error details below. Verify UNIFI_HOST and UNIFI_API_KEY are correct.",
+                        details=stderr.strip()[:500],
+                        hostname=unifi_host
+                    )
+
+                log_error_with_context(
+                    logger,
+                    f"Unifi exporter failed with code {process.returncode}",
+                    context={"host": unifi_host, "returncode": process.returncode, "stderr": stderr[:200]}
+                )
+                raise RuntimeError(error_msg)
 
         except subprocess.TimeoutExpired:
             process.kill()
             stdout, stderr = process.communicate()
-            logger.warning("Process timeout but checking for output files...")
+            error_msg = MCPErrorClassifier.format_timeout_error(
+                service_name="Unifi",
+                hostname=unifi_host,
+                timeout_seconds=30
+            )
+            error_msg += "\n\nThe exporter process was killed after timeout. Check if Unifi controller is responding slowly."
+            log_error_with_context(logger, "Unifi exporter timeout", context={"host": unifi_host, "timeout": 30})
+            logger.warning(f"Process timeout but checking for output files... STDERR: {stderr[:200]}")
 
         # Find the generated JSON file
         json_files = glob.glob(os.path.join(tmpdir, "unifi_network_*.json"))
 
         if not json_files:
-            raise FileNotFoundError(
-                f"No output file generated. STDOUT: {stdout}, STDERR: {stderr}"
+            error_msg = MCPErrorClassifier.format_error_message(
+                service_name="Unifi",
+                error_type="Export Failed",
+                message="No output file generated by Unifi exporter",
+                remediation="The exporter ran but produced no output. Check if Unifi controller is accessible and responding.",
+                details=f"STDOUT: {stdout[:200]}, STDERR: {stderr[:200]}",
+                hostname=unifi_host
             )
+            log_error_with_context(
+                logger,
+                "Unifi exporter generated no output",
+                context={"host": unifi_host, "stdout": stdout[:100], "stderr": stderr[:100]}
+            )
+            raise FileNotFoundError(error_msg)
 
         # Read the most recent file
         latest_file = sorted(json_files)[-1]
@@ -357,8 +455,23 @@ async def handle_call_tool_impl(
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
 
     except Exception as e:
-        logger.error(f"Error in {name}: {str(e)}", exc_info=True)
-        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+        # Check if error is already formatted by our error handler
+        error_text = str(e)
+        if "✗ Unifi" in error_text or "→" in error_text:
+            # Already formatted, return as-is
+            log_error_with_context(logger, f"Unifi tool error in {name}", error=e, context={"tool": name})
+            return [types.TextContent(type="text", text=error_text)]
+        else:
+            # Format generic error
+            error_msg = MCPErrorClassifier.format_error_message(
+                service_name="Unifi",
+                error_type="Tool Execution Error",
+                message=f"Failed to execute tool '{name}'",
+                remediation="Check the logs for detailed error information. Ensure Unifi controller is configured correctly.",
+                details=str(e)
+            )
+            log_error_with_context(logger, f"Error in tool {name}", error=e, context={"tool": name, "arguments": arguments}, exc_info=True)
+            return [types.TextContent(type="text", text=error_msg)]
 
 
 @server.call_tool()

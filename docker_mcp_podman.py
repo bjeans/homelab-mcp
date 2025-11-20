@@ -26,6 +26,7 @@ from mcp.server.models import InitializationOptions
 
 from ansible_config_manager import AnsibleConfigManager
 from mcp_config_loader import load_env_file, load_indexed_env_vars, COMMON_ALLOWED_ENV_VARS
+from mcp_error_handler import MCPErrorClassifier, log_error_with_context
 
 # Module-level initialization for standalone mode
 server = Server("docker-info")
@@ -257,21 +258,57 @@ async def container_api_request(
             ) as response:
                 if response.status == 200:
                     return await response.json()
+                elif response.status == 401:
+                    log_error_with_context(
+                        logger,
+                        f"{runtime.capitalize()} API authentication required",
+                        context={"host": host, "endpoint": endpoint, "status": 401}
+                    )
+                    return None
+                elif response.status == 404:
+                    logger.debug(
+                        f"{runtime.capitalize()} API endpoint not found: {endpoint} on {host} (HTTP 404)"
+                    )
+                    return None
+                elif response.status == 500:
+                    log_error_with_context(
+                        logger,
+                        f"{runtime.capitalize()} API internal server error",
+                        context={"host": host, "endpoint": endpoint, "status": 500}
+                    )
+                    return None
                 else:
-                    logger.warning(
-                        f"{runtime.capitalize()} API returned HTTP {response.status} for {host} ({url})"
+                    log_error_with_context(
+                        logger,
+                        f"{runtime.capitalize()} API returned HTTP {response.status}",
+                        context={"host": host, "endpoint": endpoint, "status": response.status, "url": url}
                     )
                     return None
     except asyncio.TimeoutError:
-        logger.error(
-            f"Timeout connecting to {runtime} API on {host} (timeout={timeout}s)"
+        log_error_with_context(
+            logger,
+            f"Timeout connecting to {runtime} API",
+            context={"host": host, "endpoint": config['endpoint'], "timeout": timeout}
         )
         return None
+    except aiohttp.ClientConnectorError as e:
+        logger.debug(f"Connection refused to {runtime} API on {host} - service may be offline or socket unavailable")
+        return None
     except aiohttp.ClientError as e:
-        logger.error(f"Connection error to {runtime} API on {host}: {e}")
+        log_error_with_context(
+            logger,
+            f"Connection error to {runtime} API",
+            error=e,
+            context={"host": host, "endpoint": config['endpoint']}
+        )
         return None
     except Exception as e:
-        logger.error(f"Unexpected error connecting to {runtime} API on {host}: {e}")
+        log_error_with_context(
+            logger,
+            f"Unexpected error connecting to {runtime} API",
+            error=e,
+            context={"host": host, "endpoint": config['endpoint']}
+        )
         return None
 
 

@@ -34,6 +34,7 @@ from mcp.server.models import InitializationOptions
 
 from ansible_config_manager import AnsibleConfigManager
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
+from mcp_error_handler import MCPErrorClassifier, log_error_with_context
 
 server = Server("ups-monitor")
 
@@ -262,10 +263,30 @@ async def query_nut_basic(
         }
 
     except asyncio.TimeoutError:
-        logger.error(f"Basic: Timeout connecting to NUT server {host}:{port}")
+        log_error_with_context(
+            logger,
+            f"Timeout connecting to NUT server",
+            context={"host": host, "port": port, "ups_name": ups_name, "timeout": 5}
+        )
+        return None
+    except ConnectionRefusedError as e:
+        logger.debug(f"NUT server connection refused at {host}:{port} - service may be offline")
+        return None
+    except OSError as e:
+        log_error_with_context(
+            logger,
+            f"Network error connecting to NUT server",
+            error=e,
+            context={"host": host, "port": port, "ups_name": ups_name}
+        )
         return None
     except Exception as e:
-        logger.error(f"Error in basic NUT protocol query: {e}")
+        log_error_with_context(
+            logger,
+            f"Error in basic NUT protocol query",
+            error=e,
+            context={"host": host, "port": port, "ups_name": ups_name}
+        )
         return None
 
 
