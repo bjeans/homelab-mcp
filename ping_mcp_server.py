@@ -318,7 +318,7 @@ def format_ping_result(result: Dict) -> str:
     return "\n".join(output)
 
 
-def format_inventory_error(item_type: str, requested_name: str, inventory: dict, discovery_tool: str) -> str:
+def format_inventory_error(item_type: str, requested_name: str, inventory: dict, discovery_tool_base: str) -> str:
     """
     Format a helpful error message when a host/group is not found.
     Shows first 10 available options + count of remaining, suggests discovery tool.
@@ -327,7 +327,7 @@ def format_inventory_error(item_type: str, requested_name: str, inventory: dict,
         item_type: "host" or "group"
         requested_name: The name that was requested but not found
         inventory: The full inventory dict
-        discovery_tool: Name of tool to suggest (e.g., "ping_list_hosts" or "ping_list_groups")
+        discovery_tool_base: Base name of tool (e.g., "list_hosts" or "list_groups")
     
     Returns:
         Formatted error message with suggestions
@@ -351,7 +351,13 @@ def format_inventory_error(item_type: str, requested_name: str, inventory: dict,
     if len(available) > 10:
         error_msg += f"  • ... and {len(available) - 10} more\n"
     
-    error_msg += f"\nRun '{discovery_tool}' to see all available {container_name}."
+    # Suggest both tool names (standalone and unified modes)
+    tool_names = f"'{discovery_tool_base}'"
+    if not discovery_tool_base.startswith("ping_"):
+        # Add unified mode variant if this is the base name
+        tool_names += f" or 'ping_{discovery_tool_base}'"
+    
+    error_msg += f"\nRun {tool_names} to see all available {container_name}."
     return error_msg
 
 
