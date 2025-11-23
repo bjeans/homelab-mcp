@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Ansible MCP Server Integration:** Complete integration of `ansible_mcp_server.py` into unified server and Docker deployment
+  - Refactored `AnsibleInventoryMCP` class to support dual-mode operation (standalone + unified)
+  - Added `list_tools()` and `handle_tool()` methods with `ansible_` prefix for unified mode
+  - Integrated into `homelab_unified_mcp.py` with proper routing and tool listing
+  - Added to Dockerfile for Docker deployments
+  - All 8 Ansible inventory tools now available: `ansible_get_all_hosts`, `ansible_get_all_groups`, `ansible_get_host_details`, `ansible_get_group_details`, `ansible_get_hosts_by_group`, `ansible_search_hosts`, `ansible_get_inventory_summary`, `ansible_reload_inventory`
+  - Closes issue #39
+
+### Changed
+- **Unified Server:** Now includes 8 MCP servers instead of 7 (Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS, N8N)
+- **Documentation:** Updated README.md to reflect Ansible integration completion
+
 ## [2.2.0] - 2025-11-20
 
 ### Added

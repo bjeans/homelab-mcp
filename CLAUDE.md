@@ -64,7 +64,7 @@ homelab-mcp/
 │   └── Published at: <https://hub.docker.com/r/bjeans/homelab-mcp>
 │
 ├── Utilities & Tools
-│   ├── mcp_registry_inspector.py      # MCP file management
+│   ├── mcp_registry_inspector.py      # ⚠️ DEPRECATED (v2.3.0) - MCP file management
 │   ├── unifi_exporter.py              # Unifi data export utility
 │   ├── requirements.txt               # Python dependencies
 │   └── .gitignore                     # Git ignore rules
@@ -1031,5 +1031,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and best prac
 
 **Remember:** This project manages critical infrastructure. Security and reliability are paramount. Always test thoroughly and never commit sensitive data.
 
-**Last Updated:** November 19, 2025
-**Current Version:** 2.1.0 (Dynamic enum generation for tool parameters)
+**Last Updated:** November 23, 2025
+**Current Version:** 2.2.0 (Tool catalog endpoint and error message improvements)

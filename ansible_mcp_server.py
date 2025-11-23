@@ -22,7 +22,9 @@ SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / ".env"
 
 # Ansible server only needs the common allowed variables
-load_env_file(ENV_FILE, allowed_vars=COMMON_ALLOWED_ENV_VARS, strict=True)
+# Only load env file at module level if not in unified mode
+if not os.getenv("MCP_UNIFIED_MODE"):
+    load_env_file(ENV_FILE, allowed_vars=COMMON_ALLOWED_ENV_VARS, strict=True)
 
 # Default inventory path - can be overridden via environment variable
 DEFAULT_INVENTORY_PATH = os.getenv("ANSIBLE_INVENTORY_PATH", "ansible_hosts.yml")
@@ -31,9 +33,17 @@ DEFAULT_INVENTORY_PATH = os.getenv("ANSIBLE_INVENTORY_PATH", "ansible_hosts.yml"
 class AnsibleInventoryMCP:
     """MCP Server for querying Ansible inventory"""
 
-    def __init__(self, inventory_path: str = DEFAULT_INVENTORY_PATH):
+    def __init__(self, inventory_path: str = DEFAULT_INVENTORY_PATH, ansible_inventory: Optional[dict] = None, ansible_config=None):
+        """Initialize Ansible Inventory MCP Server
+        
+        Args:
+            inventory_path: Path to Ansible inventory file (for standalone mode)
+            ansible_inventory: Pre-loaded inventory dict (for unified mode)
+            ansible_config: AnsibleConfigManager instance (for dynamic enums)
+        """
         self.inventory_path = Path(inventory_path)
-        self.inventory_data: Optional[dict] = None
+        self.inventory_data: Optional[dict] = ansible_inventory
+        self.ansible_config = ansible_config
         self.server = Server("ansible-inventory")
         self._setup_handlers()
 
@@ -50,6 +60,198 @@ class AnsibleInventoryMCP:
         if self.inventory_data is None:
             self.inventory_data = self._load_inventory()
         return self.inventory_data
+
+    async def list_tools(self) -> list[types.Tool]:
+        """List available Ansible inventory tools with ansible_ prefix (for unified mode)"""
+        return [
+            types.Tool(
+                name="ansible_get_all_hosts",
+                description="Get a list of all hosts in the Ansible inventory with their basic information",
+                inputSchema={"type": "object", "properties": {}, "required": []},
+                title="Get All Hosts",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
+            ),
+            types.Tool(
+                name="ansible_get_all_groups",
+                description="Get a list of all groups defined in the Ansible inventory",
+                inputSchema={"type": "object", "properties": {}, "required": []},
+                title="Get All Groups",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
+            ),
+            types.Tool(
+                name="ansible_get_host_details",
+                description="Get detailed information about a specific host including all variables and group memberships",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "hostname": {
+                            "type": "string",
+                            "description": "The hostname to query",
+                        }
+                    },
+                    "required": ["hostname"],
+                },
+                title="Get Host Details",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
+            ),
+            types.Tool(
+                name="ansible_get_group_details",
+                description="Get detailed information about a specific group including all hosts and variables",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "group_name": {
+                            "type": "string",
+                            "description": "The group name to query",
+                        }
+                    },
+                    "required": ["group_name"],
+                },
+                title="Get Group Details",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
+            ),
+            types.Tool(
+                name="ansible_get_hosts_by_group",
+                description="Get all hosts that belong to a specific group",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "group_name": {
+                            "type": "string",
+                            "description": "The group name to query",
+                        }
+                    },
+                    "required": ["group_name"],
+                },
+                title="Get Hosts by Group",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
+            ),
+            types.Tool(
+                name="ansible_search_hosts",
+                description="Search for hosts by name pattern or by variable values",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "pattern": {
+                            "type": "string",
+                            "description": "Pattern to match against hostnames (supports wildcards)",
+                        },
+                        "variable": {
+                            "type": "string",
+                            "description": "Variable name to search for",
+                        },
+                        "value": {
+                            "type": "string",
+                            "description": "Variable value to match (used with variable parameter)",
+                        },
+                    },
+                    "required": [],
+                },
+                title="Search Hosts",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
+            ),
+            types.Tool(
+                name="ansible_get_inventory_summary",
+                description="Get a high-level summary of the inventory including counts and structure",
+                inputSchema={"type": "object", "properties": {}, "required": []},
+                title="Get Inventory Summary",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=True,
+                )
+            ),
+            types.Tool(
+                name="ansible_reload_inventory",
+                description="Reload the inventory file from disk (useful if it has been updated)",
+                inputSchema={"type": "object", "properties": {}, "required": []},
+                title="Reload Inventory",
+                annotations=types.ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                )
+            ),
+        ]
+
+    async def handle_tool(self, tool_name: str, arguments: Optional[dict]) -> list[types.TextContent]:
+        """Route tool calls to appropriate handler methods (for unified mode)
+        
+        Args:
+            tool_name: Name of the tool (with ansible_ prefix)
+            arguments: Tool arguments dict
+            
+        Returns:
+            List of TextContent responses
+        """
+        # Strip the ansible_ prefix for routing
+        name = tool_name.replace("ansible_", "", 1) if tool_name.startswith("ansible_") else tool_name
+        
+        try:
+            if name == "get_all_hosts":
+                result = self._get_all_hosts()
+            elif name == "get_all_groups":
+                result = self._get_all_groups()
+            elif name == "get_host_details":
+                result = self._get_host_details(arguments["hostname"])
+            elif name == "get_group_details":
+                result = self._get_group_details(arguments["group_name"])
+            elif name == "get_hosts_by_group":
+                result = self._get_hosts_by_group(arguments["group_name"])
+            elif name == "search_hosts":
+                result = self._search_hosts(
+                    arguments.get("pattern"),
+                    arguments.get("variable"),
+                    arguments.get("value"),
+                )
+            elif name == "get_inventory_summary":
+                result = self._get_inventory_summary()
+            elif name == "reload_inventory":
+                result = self._reload_inventory()
+            else:
+                raise ValueError(f"Unknown tool: {name}")
+
+            return [
+                types.TextContent(type="text", text=json.dumps(result, indent=2))
+            ]
+        except Exception as e:
+            return [
+                types.TextContent(
+                    type="text", text=json.dumps({"error": str(e)}, indent=2)
+                )
+            ]
 
     def _setup_handlers(self):
         """Setup MCP request handlers"""
