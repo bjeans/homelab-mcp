@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Closes issue #39
 
 ### Changed
-- **Unified Server:** Now includes 8 MCP servers instead of 7 (Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS, N8N)
+- **Unified Server:** Updated from 6 to 7 MCP servers with Ansible integration (Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS)
 - **Documentation:** Updated README.md to reflect Ansible integration completion
 
 ## [2.2.0] - 2025-11-20

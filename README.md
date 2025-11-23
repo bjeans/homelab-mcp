@@ -305,7 +305,7 @@ Single entry for all homelab servers:
 }
 ```
 
-**Note:** The unified server includes 8 MCP servers: Ansible, Docker/Podman, Ollama, Pi-hole, Unifi, UPS, Ping, and N8N workflows. The deprecated mcp-registry-inspector is not included.
+**Note:** The unified server includes 7 MCP servers: Ansible, Docker/Podman, Ollama, Pi-hole, Unifi, UPS, and Ping. The deprecated mcp-registry-inspector is not included.
 
 **Option B: Individual Servers (Legacy)**
 
@@ -444,7 +444,7 @@ docker build -t homelab-mcp:latest .
 ### Docker Features
 
 **2.0.0 Docker Improvements:**
-- ✅ Unified MCP server as default entrypoint (all 8 servers in one container)
+- ✅ Unified MCP server as default entrypoint (all 7 servers in one container)
 - ✅ Automatic unified mode detection (no ENABLED_SERVERS needed)
 - ✅ Built-in health checks (HEALTHCHECK configured)
 - ✅ Non-root user security (mcpuser UID 1000)
@@ -495,7 +495,7 @@ docker run -d \
 ### Available Servers
 
 **Unified Mode (Default):**
-- ✅ All 8 servers in one process: Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS, N8N
+- ✅ All 7 servers in one process: Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS
 - ✅ Namespaced tools (e.g., `ansible_get_all_hosts`, `docker_get_containers`, `ups_get_ups_status`)
 - ✅ Single configuration entry
 - ✅ Built-in health checks
@@ -872,12 +872,19 @@ UNIFI_HOST=192.168.1.1
 
 ### Ansible Inventory Inspector
 
-> **⚠️ Integration in Progress:** This server is fully implemented but not yet integrated into the unified server or Docker deployment. Standalone mode works. See [#39](https://github.com/bjeans/homelab-mcp/issues/39) for tracking.
+Query Ansible inventory information (read-only). Available in both unified and standalone modes.
 
-Query Ansible inventory information (read-only).
+**Unified Mode Tools** (with `ansible_` prefix):
+- `ansible_get_all_hosts` - Get all hosts in inventory
+- `ansible_get_all_groups` - Get all groups
+- `ansible_get_host_details` - Get detailed host information
+- `ansible_get_group_details` - Get detailed group information
+- `ansible_get_hosts_by_group` - Get hosts in specific group
+- `ansible_search_hosts` - Search hosts by pattern or variable
+- `ansible_get_inventory_summary` - High-level inventory overview
+- `ansible_reload_inventory` - Reload inventory from disk
 
-**Tools:**
-
+**Standalone Mode Tools** (without prefix):
 - `get_all_hosts` - Get all hosts in inventory
 - `get_all_groups` - Get all groups
 - `get_host_details` - Get detailed host information
@@ -893,10 +900,10 @@ Query Ansible inventory information (read-only).
 ANSIBLE_INVENTORY_PATH=/path/to/ansible_hosts.yml
 ```
 
-**Current limitations:**
-- Not available in unified server mode
-- Not available in Docker deployments
-- Standalone mode only: `python ansible_mcp_server.py`
+**Deployment:**
+- ✅ Available in unified server mode
+- ✅ Available in Docker deployments
+- ✅ Available in standalone mode: `python ansible_mcp_server.py`
 
 ### Ping Network Connectivity Monitor
 
