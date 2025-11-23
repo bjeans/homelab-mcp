@@ -89,11 +89,15 @@ This README covers installation and basic setup. The project instructions provid
 
 ## 🎯 Deployment Options
 
-**Version 2.1.0+** offers two deployment modes (plus dynamic enum tool parameters):
+**Version 2.2.0** offers flexible deployment with two modes and two methods:
 
-### Unified Server (Recommended for New Deployments)
+### Deployment Modes
 
-Run all MCP servers in a single process with namespaced tools. This is the recommended approach for new installations and Docker deployments:
+Choose how your MCP servers are organized:
+
+#### 1. Unified Server (Recommended)
+
+Run all MCP servers in a single process with namespaced tools. This is the recommended approach for new installations and **required for Docker deployments**.
 
 ```json
 {
@@ -109,15 +113,15 @@ Run all MCP servers in a single process with namespaced tools. This is the recom
 **Advantages:**
 - ✅ Single configuration entry
 - ✅ One Python process for all servers
-- ✅ Better Docker deployment with unified entrypoint
 - ✅ Cleaner logs (no duplicate warnings)
 - ✅ All tools namespaced (e.g., `docker_get_containers`, `ping_ping_host`)
-- ✅ Built-in health checks (Docker)
+- ✅ Required for Docker deployments
+- ✅ Built-in health checks
 - ✅ Production-ready containerization
 
-### Individual Servers (Legacy, Fully Supported)
+#### 2. Individual Servers (Legacy, Fully Supported)
 
-Run each MCP server as a separate process. This mode remains fully supported for backward compatibility:
+Run each MCP server as a separate process. This mode remains fully supported for backward compatibility and **only available with native Python installation**.
 
 ```json
 {
@@ -140,7 +144,60 @@ Run each MCP server as a separate process. This mode remains fully supported for
 - ✅ Original tool names (e.g., `get_docker_containers`, `ping_host`)
 - ✅ Backward compatible with v1.x
 
-**Migration Guide:** See [MIGRATION.md](MIGRATION.md) for detailed migration instructions and tool name changes.
+**Note:** Tool names differ between modes. See [MIGRATION.md](MIGRATION.md) for detailed migration instructions and tool name changes.
+
+---
+
+### Deployment Methods
+
+Choose how to install and run the servers:
+
+#### 1. Docker Container (Recommended for Production)
+
+Pre-built images available on Docker Hub for immediate deployment. See [🐳 Docker Deployment](#-docker-deployment-alternative) for full setup instructions.
+
+**Quick Start:**
+```bash
+docker pull bjeans/homelab-mcp:latest
+docker-compose up -d
+```
+
+**Advantages:**
+- ✅ No Python environment setup required
+- ✅ Pre-built, tested images
+- ✅ Automatic updates with image pulls
+- ✅ Multi-platform support (amd64, arm64)
+- ✅ Simplified configuration
+- ✅ Production-grade containerization
+
+**Limitations:**
+- Unified server mode only
+- mcp-registry-inspector not available (deprecated)
+
+#### 2. Native Python Installation (Development & Legacy)
+
+Install Python dependencies directly and run servers from source. See [📦 Installation](#-installation) for full setup instructions.
+
+**Quick Start:**
+```bash
+pip install -r requirements.txt
+python homelab_unified_mcp.py
+```
+
+**Advantages:**
+- ✅ Full access to source code
+- ✅ Easy debugging and development
+- ✅ Supports both unified and individual server modes
+- ✅ Can run on any Python-compatible platform
+
+**Requirements:**
+- Python 3.10+ with pip
+- Manual dependency management
+- Environment configuration via .env file
+
+---
+
+**Migration Guide:** See [MIGRATION.md](MIGRATION.md) for detailed instructions on switching between modes or methods.
 
 ## 🚀 Quick Start
 
@@ -239,19 +296,16 @@ Single entry for all homelab servers:
   "mcpServers": {
     "homelab-unified": {
       "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\homelab_unified_mcp.py"]
-    },
-    "mcp-registry-inspector": {
-      "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\mcp_registry_inspector.py"]
-    },
-    "ansible-inventory": {
-      "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\ansible_mcp_server.py"]
+      "args": ["C:\\Path\\To\\Homelab-MCP\\homelab_unified_mcp.py"],
+      "env": {
+        "ANSIBLE_INVENTORY_PATH": "C:\\Path\\To\\ansible_hosts.yml"
+      }
     }
   }
 }
 ```
+
+**Note:** The unified server includes 7 MCP servers: Ansible, Docker/Podman, Ollama, Pi-hole, Unifi, UPS, and Ping. The deprecated mcp-registry-inspector is not included.
 
 **Option B: Individual Servers (Legacy)**
 
@@ -260,43 +314,53 @@ Separate entry for each server:
 ```json
 {
   "mcpServers": {
-    "mcp-registry-inspector": {
-      "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\mcp_registry_inspector.py"]
-    },
     "docker": {
       "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\docker_mcp_podman.py"]
+      "args": ["C:\\Path\\To\\Homelab-MCP\\docker_mcp_podman.py"],
+      "env": {
+        "ANSIBLE_INVENTORY_PATH": "C:\\Path\\To\\ansible_hosts.yml"
+      }
     },
     "ollama": {
       "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\ollama_mcp.py"]
+      "args": ["C:\\Path\\To\\Homelab-MCP\\ollama_mcp.py"],
+      "env": {
+        "ANSIBLE_INVENTORY_PATH": "C:\\Path\\To\\ansible_hosts.yml"
+      }
     },
     "pihole": {
       "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\pihole_mcp.py"]
+      "args": ["C:\\Path\\To\\Homelab-MCP\\pihole_mcp.py"],
+      "env": {
+        "ANSIBLE_INVENTORY_PATH": "C:\\Path\\To\\ansible_hosts.yml"
+      }
     },
     "unifi": {
       "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\unifi_mcp_optimized.py"]
+      "args": ["C:\\Path\\To\\Homelab-MCP\\unifi_mcp_optimized.py"],
+      "env": {
+        "ANSIBLE_INVENTORY_PATH": "C:\\Path\\To\\ansible_hosts.yml"
+      }
     },
     "ping": {
       "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\ping_mcp_server.py"]
+      "args": ["C:\\Path\\To\\Homelab-MCP\\ping_mcp_server.py"],
+      "env": {
+        "ANSIBLE_INVENTORY_PATH": "C:\\Path\\To\\ansible_hosts.yml"
+      }
     },
     "ups-monitor": {
       "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\ups_mcp_server.py"]
-    },
-    "ansible-inventory": {
-      "command": "python",
-      "args": ["C:\\Path\\To\\Homelab-MCP\\ansible_mcp_server.py"]
+      "args": ["C:\\Path\\To\\Homelab-MCP\\ups_mcp_server.py"],
+      "env": {
+        "ANSIBLE_INVENTORY_PATH": "C:\\Path\\To\\ansible_hosts.yml"
+      }
     }
   }
 }
 ```
 
-**Note:** Tool names differ between modes. See [MIGRATION.md](MIGRATION.md) for details.
+**Note:** Tool names differ between modes. See [MIGRATION.md](MIGRATION.md) for details. The deprecated mcp-registry-inspector has been removed from this example. Ansible MCP server integration is tracked in [#39](https://github.com/bjeans/homelab-mcp/issues/39).
 
 ### 6. Restart Claude Desktop
 
@@ -340,7 +404,7 @@ docker pull bjeans/homelab-mcp:main-17bae01
 - `main-<git-sha>` - Specific commit builds for traceability (e.g., `main-17bae01`)
 
 **Semantic version tags (available after release):**
-- Version tags like `2.1.0`, `2.1`, `2` will be created when the `v2.1.0` Git release is published
+- Version tags like `2.2.0`, `2.2`, `2` will be created when the `v2.2.0` Git release is published
 - Until then, use `latest` for the most recent stable build
 
 **Multi-platform support:**
@@ -432,7 +496,7 @@ docker run -d \
 
 **Unified Mode (Default):**
 - ✅ All 7 servers in one process: Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS
-- ✅ Namespaced tools (e.g., `docker_get_containers`, `ups_get_ups_status`)
+- ✅ Namespaced tools (e.g., `ansible_get_all_hosts`, `docker_get_containers`, `ups_get_ups_status`)
 - ✅ Single configuration entry
 - ✅ Built-in health checks
 
@@ -522,7 +586,7 @@ For comprehensive Docker deployment guide, see [DOCKER.md](DOCKER.md).
 
 ## 📦 Available MCP Servers
 
-### ✨ Dynamic Tool Parameter Enums (New in v2.1)
+### ✨ Dynamic Tool Parameter Enums (New in v2.1.0)
 
 When you configure Ansible inventory, Claude Desktop will automatically show your infrastructure options in dropdown menus. No more guessing hostnames or group names!
 
@@ -554,11 +618,19 @@ When you configure Ansible inventory, Claude Desktop will automatically show you
 
 ---
 
-### MCP Registry Inspector
+### MCP Registry Inspector (⚠️ DEPRECATED)
 
-Provides introspection into your MCP development environment.
+> **Deprecation Notice (v2.3.0):** This tool is deprecated. Claude Desktop now has native file system access, making this MCP server unnecessary. You can simply ask Claude to read your MCP server files or configuration directly.
 
-**⚠️ Note:** MCP Registry Inspector is NOT included in Docker image - run directly on your host machine only.
+**Replacement:** Use Claude's built-in file access:
+- "Read my claude_desktop_config.json file"
+- "Show me the source code for docker_mcp_podman.py"
+- "List all .py files in this directory"
+
+**For users with existing configurations:** This server will continue to work but will not receive updates. It will be removed from documentation in v3.0.0. Consider removing it from your `claude_desktop_config.json`.
+
+<details>
+<summary>Legacy Configuration (for reference only)</summary>
 
 **Tools:**
 
@@ -575,6 +647,8 @@ Provides introspection into your MCP development environment.
 MCP_DIRECTORY=/path/to/your/Homelab-MCP
 CLAUDE_CONFIG_PATH=/path/to/claude_desktop_config.json  # Optional
 ```
+
+</details>
 
 ### Docker/Podman Container Manager
 
@@ -798,10 +872,19 @@ UNIFI_HOST=192.168.1.1
 
 ### Ansible Inventory Inspector
 
-Query Ansible inventory information (read-only).
+Query Ansible inventory information (read-only). Available in both unified and standalone modes.
 
-**Tools:**
+**Unified Mode Tools** (with `ansible_` prefix):
+- `ansible_get_all_hosts` - Get all hosts in inventory
+- `ansible_get_all_groups` - Get all groups
+- `ansible_get_host_details` - Get detailed host information
+- `ansible_get_group_details` - Get detailed group information
+- `ansible_get_hosts_by_group` - Get hosts in specific group
+- `ansible_search_hosts` - Search hosts by pattern or variable
+- `ansible_get_inventory_summary` - High-level inventory overview
+- `ansible_reload_inventory` - Reload inventory from disk
 
+**Standalone Mode Tools** (without prefix):
 - `get_all_hosts` - Get all hosts in inventory
 - `get_all_groups` - Get all groups
 - `get_host_details` - Get detailed host information
@@ -816,6 +899,11 @@ Query Ansible inventory information (read-only).
 ```bash
 ANSIBLE_INVENTORY_PATH=/path/to/ansible_hosts.yml
 ```
+
+**Deployment:**
+- ✅ Available in unified server mode
+- ✅ Available in Docker deployments
+- ✅ Available in standalone mode: `python ansible_mcp_server.py`
 
 ### Ping Network Connectivity Monitor
 
@@ -1173,27 +1261,55 @@ python helpers/pre_publish_check.py
 
 ```text
 Homelab-MCP/
-├── helpers/                 # Utility and setup scripts
-│   ├── install_git_hook.py # Git pre-push hook installer
-│   └── pre_publish_check.py # Security validation script
-├── .env.example              # Template for environment variables
-├── .gitignore               # Excludes sensitive files
-├── SECURITY.md              # Security best practices
-├── README.md                # This file
-├── CLAUDE_CUSTOM.example.md # Example for custom Claude instructions
-├── CLAUDE.md                # Public Claude AI assistant guide
-├── CONTRIBUTING.md          # Contribution guidelines
-├── CHANGELOG.md             # Version history
-├── requirements.txt         # Python dependencies
-├── ansible_hosts.example.yml    # Example Ansible inventory
-├── PROJECT_INSTRUCTIONS.example.md  # Example Claude instructions
-├── ansible_mcp_server.py    # Ansible inventory MCP
-├── docker_mcp_podman.py     # Docker/Podman MCP
-├── ollama_mcp.py            # Ollama AI MCP
-├── pihole_mcp.py            # Pi-hole DNS MCP
-├── unifi_mcp_optimized.py   # Unifi network MCP
-├── unifi_exporter.py        # Unifi data export utility
-└── mcp_registry_inspector.py  # MCP development tools
+├── MCP Servers (7 production servers)
+│   ├── ansible_mcp_server.py      # Ansible inventory queries (integration in progress)
+│   ├── docker_mcp_podman.py       # Docker/Podman container monitoring
+│   ├── ollama_mcp.py              # Ollama AI model management
+│   ├── pihole_mcp.py              # Pi-hole DNS monitoring
+│   ├── ping_mcp_server.py         # Network connectivity testing
+│   ├── unifi_mcp_optimized.py     # Unifi network device monitoring
+│   └── ups_mcp_server.py          # UPS/NUT monitoring
+│
+├── Unified Server & Core Modules
+│   ├── homelab_unified_mcp.py     # Combines all servers (Docker entrypoint)
+│   ├── mcp_config_loader.py       # Secure environment variable loading
+│   ├── mcp_error_handler.py       # Centralized error handling
+│   └── ansible_config_manager.py  # Ansible inventory + enum generation
+│
+├── Utilities & Deprecated Tools
+│   ├── unifi_exporter.py          # Unifi data export utility
+│   └── mcp_registry_inspector.py  # MCP file management (⚠️ DEPRECATED v2.3.0)
+│
+├── Configuration & Examples
+│   ├── .env.example               # Configuration template (gitignored)
+│   ├── ansible_hosts.example.yml  # Ansible inventory example (gitignored)
+│   ├── PROJECT_INSTRUCTIONS.example.md # AI assistant guide template
+│   └── CLAUDE_CUSTOM.example.md   # Local customization template (gitignored)
+│
+├── Documentation
+│   ├── README.md                  # This file - user documentation
+│   ├── CLAUDE.md                  # AI assistant development guide
+│   ├── SECURITY.md                # Security guidelines
+│   ├── CONTRIBUTING.md            # Contribution guide
+│   ├── CHANGELOG.md               # Version history
+│   ├── MIGRATION.md               # Version migration guide
+│   ├── CONTEXT_AWARE_SECURITY.md  # Security scanning docs
+│   ├── CI_CD_CHECKS.md            # CI/CD automation docs
+│   └── LICENSE                    # MIT License
+│
+├── Docker Deployment
+│   ├── Dockerfile                 # Container build configuration
+│   ├── docker-compose.yml         # Container orchestration (uses bjeans/homelab-mcp:latest)
+│   └── docker-entrypoint.sh       # Container startup script
+│
+├── Development Tools
+│   ├── helpers/
+│   │   ├── install_git_hook.py    # Git pre-push hook installer
+│   │   ├── pre_publish_check.py   # Security validation
+│   │   ├── run_checks.py          # CI/CD check runner
+│   │   └── requirements-dev.txt   # Development dependencies
+│   ├── requirements.txt           # Production Python dependencies
+│   └── .gitignore                 # Git ignore rules
 ```
 
 ### Adding a New MCP Server

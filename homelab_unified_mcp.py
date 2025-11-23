@@ -48,6 +48,7 @@ load_env_file(ENV_FILE, allowed_vars=UNIFIED_ALLOWED_VARS, strict=True)
 os.environ["MCP_UNIFIED_MODE"] = "1"
 
 # Import all sub-servers (they will skip load_env_file if MCP_UNIFIED_MODE is set)
+from ansible_mcp_server import AnsibleInventoryMCP
 from docker_mcp_podman import DockerMCPServer
 from ping_mcp_server import PingMCPServer
 from ollama_mcp import OllamaMCPServer
@@ -149,6 +150,12 @@ class UnifiedHomelabServer:
             ansible_config=ansible_config
         )
 
+        logger.info("Initializing Ansible Inventory MCP Server...")
+        self.ansible = AnsibleInventoryMCP(
+            ansible_inventory=shared_inventory,
+            ansible_config=ansible_config
+        )
+
         # Register handlers
         self.setup_handlers()
 
@@ -173,6 +180,7 @@ class UnifiedHomelabServer:
         """
         # Collect tools from all sub-servers (same pattern as handle_list_tools)
         all_tools = []
+        all_tools.extend(await self.ansible.list_tools())
         all_tools.extend(await self.docker.list_tools())
         all_tools.extend(await self.ping.list_tools())
         all_tools.extend(await self.ollama.list_tools())
@@ -230,6 +238,7 @@ class UnifiedHomelabServer:
             tools = []
 
             # Get tools from each sub-server
+            tools.extend(await self.ansible.list_tools())
             tools.extend(await self.docker.list_tools())
             tools.extend(await self.ping.list_tools())
             tools.extend(await self.ollama.list_tools())
@@ -267,7 +276,9 @@ class UnifiedHomelabServer:
                     return await self.get_tool_catalog()
 
                 # Route based on tool name prefix
-                if name.startswith("docker_"):
+                if name.startswith("ansible_"):
+                    return await self.ansible.handle_tool(name, arguments)
+                elif name.startswith("docker_"):
                     return await self.docker.handle_tool(name, arguments)
                 elif name.startswith("ping_"):
                     return await self.ping.handle_tool(name, arguments)

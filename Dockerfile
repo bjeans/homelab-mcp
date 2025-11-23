@@ -59,6 +59,7 @@ COPY --chown=mcpuser:mcpuser requirements.txt .
 
 # Copy MCP server files
 COPY --chown=mcpuser:mcpuser ansible_config_manager.py .
+COPY --chown=mcpuser:mcpuser ansible_mcp_server.py .
 COPY --chown=mcpuser:mcpuser homelab_unified_mcp.py .
 COPY --chown=mcpuser:mcpuser docker_mcp_podman.py .
 COPY --chown=mcpuser:mcpuser ping_mcp_server.py .
