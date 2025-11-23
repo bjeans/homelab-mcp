@@ -2,6 +2,21 @@
 """
 MCP Registry Inspector Server
 
+⚠️ DEPRECATED (v2.3.0): This tool is deprecated. Claude Desktop now has native
+file system access, making this MCP server unnecessary. You can simply ask Claude
+to read your MCP server files or configuration directly.
+
+REPLACEMENT: Use Claude's built-in file access:
+- "Read my claude_desktop_config.json file"
+- "Show me the source code for docker_mcp_podman.py"
+- "List all .py files in this directory"
+
+This server will continue to work but will not receive updates. It will be
+removed from documentation in v3.0.0.
+
+---
+
+LEGACY DESCRIPTION:
 This MCP server allows querying Claude Desktop's MCP configuration
 and inspecting the MCP server directory contents.
 """
@@ -354,6 +369,13 @@ async def call_tool(name: str, arguments: Any) -> list[types.TextContent]:
 
 async def main():
     """Run the MCP server."""
+    logger.warning("=" * 80)
+    logger.warning("⚠️  MCP REGISTRY INSPECTOR IS DEPRECATED (v2.3.0)")
+    logger.warning("⚠️  Claude Desktop now has native file system access.")
+    logger.warning("⚠️  This server will not receive updates and will be removed in v3.0.0.")
+    logger.warning("⚠️  Please use Claude's built-in file access instead.")
+    logger.warning("=" * 80)
+
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream, write_stream, server.create_initialization_options()
