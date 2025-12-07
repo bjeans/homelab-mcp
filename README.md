@@ -1,5 +1,9 @@
 # Homelab MCP Servers
 
+<p align="center">
+  <img src="assets/Homelab-mcp-logo-transparent.png" alt="Homelab MCP Logo" width="400">
+</p>
+
 [![GitHub release](https://img.shields.io/github/v/release/bjeans/homelab-mcp)](https://github.com/bjeans/homelab-mcp/releases)
 [![Security Check](https://github.com/bjeans/homelab-mcp/actions/workflows/security-check.yml/badge.svg)](https://github.com/bjeans/homelab-mcp/actions/workflows/security-check.yml)
 [![Docker Build](https://github.com/bjeans/homelab-mcp/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/bjeans/homelab-mcp/actions/workflows/docker-publish.yml)
