@@ -69,6 +69,11 @@ homelab-mcp/
 │   ├── requirements.txt               # Python dependencies
 │   └── .gitignore                     # Git ignore rules
 │
+├── assets/                            # Project branding assets
+│   ├── Homelab-mcp-logo-transparent.png    # Logo with transparent background (1024x1024)
+│   ├── Homelab-mcp-logo-white.png          # Logo with white background (1024x1024)
+│   └── Homelab-mcp-logo-transparent.svg    # Vector logo (traced from PNG)
+│
 └── helpers/                           # Development utilities
     ├── install_git_hook.py            # Git pre-push hook installer
     ├── pre_publish_check.py           # Security validation
