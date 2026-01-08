@@ -1036,5 +1036,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and best prac
 
 **Remember:** This project manages critical infrastructure. Security and reliability are paramount. Always test thoroughly and never commit sensitive data.
 
-**Last Updated:** November 23, 2025
-**Current Version:** 2.2.0 (Tool catalog endpoint and error message improvements)
+**Last Updated:** January 7, 2026
+**Current Version:** 2.2.1 (Security update - dependency vulnerability fixes)
