@@ -6,7 +6,8 @@ mcp>=1.0.0
 ansible-core>=2.15.0
 
 # Async HTTP client for Docker API, Ollama, Pi-hole
-aiohttp>=3.9.0
+# Pinned to >=3.13.3 for CVE-2025-69223 (HIGH), CVE-2025-69227/28/29 (MEDIUM)
+aiohttp>=3.13.3
 
 # Sync HTTP client for Unifi exporter and fallback operations
 requests>=2.31.0
