@@ -29,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - 3 MEDIUM: CVE-2025-69227 (Infinite Loop), CVE-2025-69228, CVE-2025-69229 (Resource Exhaustion)
     - 4 LOW: CVE-2025-69226, CVE-2025-69230 (Info Exposure, Excessive Logging)
   - Reduced total vulnerabilities from 11 to 2 (remaining are unfixed upstream Alpine issues)
+  - Pinned `aiohttp>=3.13.3` in requirements.txt to enforce security fix
+
+### Added
+- **Dependabot Configuration:** Automated dependency update PRs via `.github/dependabot.yml`
+  - Python dependencies checked daily (catches security updates quickly)
+  - Docker base image checked weekly
+  - GitHub Actions checked weekly
+  - Auto-labels PRs with `dependencies`, `security`, `docker`, or `ci` tags
 
 ### Note
 - 2 vulnerabilities remain in Alpine base image packages (zlib, busybox) with no upstream fix available yet
