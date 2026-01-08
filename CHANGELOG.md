@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unified Server:** Updated from 6 to 7 MCP servers with Ansible integration (Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS)
 - **Documentation:** Updated README.md to reflect Ansible integration completion
 
-## [2.2.1] - 2025-01-07
+## [2.2.1] - 2026-01-07
 
 ### Security
 - **Docker Image Rebuild:** Rebuilt Docker image to address 9 dependency vulnerabilities
