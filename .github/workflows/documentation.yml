@@ -22,7 +22,7 @@ jobs:
       continue-on-error: true
       
     - name: Spell check documentation
-      uses: rojopolis/spellcheck-github-actions@0.36.0
+      uses: rojopolis/spellcheck-github-actions@0.56.0
       with:
         config_path: .github/spellcheck-config.yml
       continue-on-error: true
