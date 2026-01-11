@@ -241,7 +241,7 @@ async def pihole_api_request(host: str, port: int, endpoint: str, sid: str, time
 # FastMCP Tools
 
 @mcp.tool()
-async def get_pihole_stats() -> str:
+async def get_summary() -> str:
     """Get DNS statistics from all Pi-hole instances"""
     pihole_hosts = _load_pihole_hosts()
 
@@ -287,7 +287,7 @@ async def get_pihole_stats() -> str:
 
 
 @mcp.tool()
-async def get_pihole_status() -> str:
+async def list_hosts() -> str:
     """Check which Pi-hole instances are online"""
     pihole_hosts = _load_pihole_hosts()
 
@@ -307,6 +307,168 @@ async def get_pihole_status() -> str:
             output += f"✓ {display_name} ({host}:{port}): ONLINE\n"
 
     output = f"Online: {online}/{len(pihole_hosts)}\n\n" + output
+    return output
+
+
+@mcp.tool()
+async def get_top_items(display_name: str = "", limit: int = 10) -> str:
+    """
+    Get top blocked domains and top clients
+
+    Args:
+        display_name: Pi-hole instance name (optional, queries all if not specified)
+        limit: Number of top items to return (default: 10)
+    """
+    pihole_hosts = _load_pihole_hosts()
+
+    if not pihole_hosts:
+        return "No Pi-hole hosts configured."
+
+    # Filter to specific host if provided
+    if display_name:
+        pihole_hosts = [(n, h, p, k) for n, h, p, k in pihole_hosts if n == display_name]
+        if not pihole_hosts:
+            return f"Error: Pi-hole instance '{display_name}' not found"
+
+    output = "=== TOP ITEMS ===\n\n"
+
+    for name, host, port, api_key in pihole_hosts:
+        output += f"--- {name} ---\n"
+
+        session_result = await get_cached_session(name, host, port, api_key)
+
+        if "error" in session_result:
+            output += f"Error: {session_result['error']}\n\n"
+            continue
+
+        sid = session_result["sid"]
+
+        # Get top blocked domains
+        top_blocked = await pihole_api_request(host, port, f"/api/stats/top_blocked?count={limit}", sid)
+
+        if top_blocked and "top_blocked" in top_blocked:
+            output += "Top Blocked Domains:\n"
+            for i, (domain, count) in enumerate(top_blocked["top_blocked"].items(), 1):
+                output += f"  {i}. {domain}: {count:,} queries\n"
+            output += "\n"
+
+        # Get top clients
+        top_clients = await pihole_api_request(host, port, f"/api/stats/top_clients?count={limit}", sid)
+
+        if top_clients and "top_clients" in top_clients:
+            output += "Top Clients:\n"
+            for i, (client, count) in enumerate(top_clients["top_clients"].items(), 1):
+                output += f"  {i}. {client}: {count:,} queries\n"
+            output += "\n"
+
+    return output
+
+
+@mcp.tool()
+async def get_query_types(display_name: str = "") -> str:
+    """
+    Get DNS query type statistics
+
+    Args:
+        display_name: Pi-hole instance name (optional, queries all if not specified)
+    """
+    pihole_hosts = _load_pihole_hosts()
+
+    if not pihole_hosts:
+        return "No Pi-hole hosts configured."
+
+    # Filter to specific host if provided
+    if display_name:
+        pihole_hosts = [(n, h, p, k) for n, h, p, k in pihole_hosts if n == display_name]
+        if not pihole_hosts:
+            return f"Error: Pi-hole instance '{display_name}' not found"
+
+    output = "=== QUERY TYPES ===\n\n"
+
+    for name, host, port, api_key in pihole_hosts:
+        output += f"--- {name} ---\n"
+
+        session_result = await get_cached_session(name, host, port, api_key)
+
+        if "error" in session_result:
+            output += f"Error: {session_result['error']}\n\n"
+            continue
+
+        sid = session_result["sid"]
+        data = await pihole_api_request(host, port, "/api/stats/query_types", sid)
+
+        if data and "query_types" in data:
+            query_types = data["query_types"]
+            output += "DNS Query Types:\n"
+            for qtype, percentage in sorted(query_types.items(), key=lambda x: x[1], reverse=True):
+                output += f"  {qtype}: {percentage:.1f}%\n"
+            output += "\n"
+        else:
+            output += "Could not retrieve query types\n\n"
+
+    return output
+
+
+@mcp.tool()
+async def get_forward_destinations(display_name: str = "") -> str:
+    """
+    Get upstream DNS server statistics
+
+    Args:
+        display_name: Pi-hole instance name (optional, queries all if not specified)
+    """
+    pihole_hosts = _load_pihole_hosts()
+
+    if not pihole_hosts:
+        return "No Pi-hole hosts configured."
+
+    # Filter to specific host if provided
+    if display_name:
+        pihole_hosts = [(n, h, p, k) for n, h, p, k in pihole_hosts if n == display_name]
+        if not pihole_hosts:
+            return f"Error: Pi-hole instance '{display_name}' not found"
+
+    output = "=== FORWARD DESTINATIONS ===\n\n"
+
+    for name, host, port, api_key in pihole_hosts:
+        output += f"--- {name} ---\n"
+
+        session_result = await get_cached_session(name, host, port, api_key)
+
+        if "error" in session_result:
+            output += f"Error: {session_result['error']}\n\n"
+            continue
+
+        sid = session_result["sid"]
+        data = await pihole_api_request(host, port, "/api/stats/upstreams", sid)
+
+        if data and "upstreams" in data:
+            upstreams = data["upstreams"]
+            output += "Upstream DNS Servers:\n"
+            for upstream, stats in sorted(upstreams.items(), key=lambda x: x[1].get("count", 0), reverse=True):
+                count = stats.get("count", 0)
+                percentage = stats.get("percentage", 0)
+                output += f"  {upstream}: {count:,} queries ({percentage:.1f}%)\n"
+            output += "\n"
+        else:
+            output += "Could not retrieve upstream statistics\n\n"
+
+    return output
+
+
+@mcp.tool()
+def reload_inventory() -> str:
+    """Reload Pi-hole hosts from Ansible inventory (useful after inventory changes)"""
+    global _pihole_hosts_cache
+    _pihole_hosts_cache = None
+    pihole_hosts = _load_pihole_hosts()
+
+    output = "=== INVENTORY RELOADED ===\n\n"
+    output += f"✓ Loaded {len(pihole_hosts)} Pi-hole host(s)\n\n"
+
+    for display_name, host, port, api_key in pihole_hosts:
+        output += f"  • {display_name} -> {host}:{port}\n"
+
     return output
 
 

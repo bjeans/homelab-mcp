@@ -271,7 +271,7 @@ def format_labels_output(labels: Dict, indent: str = "  ") -> str:
 # FastMCP Tools
 
 @mcp.tool()
-async def get_docker_containers(hostname: str) -> str:
+async def list_containers(hostname: str) -> str:
     """
     Get containers on a specific host (works with both Docker and Podman)
 
@@ -336,7 +336,7 @@ async def get_docker_containers(hostname: str) -> str:
 
 
 @mcp.tool()
-async def get_all_containers() -> str:
+async def list_all_hosts() -> str:
     """Get all containers across all hosts"""
     container_hosts = _load_container_hosts()
 
@@ -370,7 +370,7 @@ async def get_all_containers() -> str:
 
 
 @mcp.tool()
-async def get_container_stats(hostname: str) -> str:
+async def get_stats(hostname: str) -> str:
     """
     Get CPU and memory stats for containers on a host
 
@@ -442,7 +442,7 @@ async def get_container_stats(hostname: str) -> str:
 
 
 @mcp.tool()
-async def check_container(hostname: str, container: str) -> str:
+async def get_container_details(hostname: str, container: str) -> str:
     """
     Check if a specific container is running on a host
 
@@ -483,80 +483,19 @@ async def check_container(hostname: str, container: str) -> str:
 
 
 @mcp.tool()
-async def find_containers_by_label(label_key: str, hostname: str = "all", label_value: str = "") -> str:
+async def get_container_logs(hostname: str, container: str, tail: int = 100) -> str:
     """
-    Find containers by label key-value pair
-
-    Args:
-        label_key: Label key to search for (e.g., 'traefik.http.routers.web.rule')
-        hostname: Host to search (or 'all' for all hosts)
-        label_value: Optional label value to match (substring match)
-    """
-    container_hosts = _load_container_hosts()
-
-    hosts_to_search = container_hosts.keys() if hostname.lower() == "all" else [hostname]
-
-    output = f"Searching for containers with label key: '{label_key}'\n"
-    if label_value:
-        output += f"Value filter: '{label_value}'\n"
-    output += f"Hosts: {', '.join(hosts_to_search)}\n\n"
-
-    results_found = False
-
-    for host in hosts_to_search:
-        if host not in container_hosts:
-            output += f"✗ Unknown host: {host}\n"
-            continue
-
-        runtime = container_hosts[host]["runtime"]
-        containers = await container_api_request(host, "/containers/json")
-
-        if containers is None:
-            output += f"✗ Could not connect to {host}\n"
-            continue
-
-        matching_containers = []
-
-        for container in containers:
-            norm = normalize_container_info(container, runtime)
-            labels = norm.get("Labels", {})
-
-            for key, value in labels.items():
-                if label_key.lower() in key.lower():
-                    if label_value and label_value.lower() not in str(value).lower():
-                        continue
-
-                    matching_containers.append((key, value, norm))
-                    results_found = True
-
-        if matching_containers:
-            output += f"--- {host.upper()} ({runtime.upper()}) ---\n"
-            for label_key_found, label_value_found, norm in matching_containers:
-                name_str = norm["Names"][0].lstrip("/") if norm["Names"] else "Unknown"
-                output += f"• {name_str}\n"
-                output += f"  Label: {label_key_found}\n"
-                output += f"  Value: {label_value_found}\n"
-                output += f"  Image: {norm['Image']}\n\n"
-
-    if not results_found:
-        output += "No containers found matching the label criteria.\n"
-
-    return output
-
-
-@mcp.tool()
-async def get_container_labels(hostname: str, container: str) -> str:
-    """
-    Get all labels for a specific container
+    Get recent logs from a specific container
 
     Args:
         hostname: Container host from your Ansible inventory
         container: Container name
+        tail: Number of recent log lines to retrieve (default: 100)
     """
     container_hosts = _load_container_hosts()
 
     if hostname not in container_hosts:
-        return f"Error: Unknown host '{hostname}'"
+        return f"Error: Unknown host '{hostname}'. Valid hosts: {', '.join(container_hosts.keys())}"
 
     runtime = container_hosts[hostname]["runtime"]
     containers = await container_api_request(hostname, "/containers/json")
@@ -564,6 +503,8 @@ async def get_container_labels(hostname: str, container: str) -> str:
     if containers is None:
         return f"Error: Could not connect to {runtime.capitalize()} API on {hostname}"
 
+    # Find the container ID
+    container_id = None
     for c in containers:
         norm = normalize_container_info(c, runtime)
         names = norm["Names"]
@@ -571,34 +512,55 @@ async def get_container_labels(hostname: str, container: str) -> str:
         for name in names:
             clean_name = name.lstrip("/")
             if clean_name == container or name == container:
-                labels = norm.get("Labels", {})
+                container_id = norm["Id"]
+                break
+        if container_id:
+            break
 
-                output = f"Container: {container}\n"
-                output += f"Host: {hostname}\n"
-                output += f"Image: {norm['Image']}\n"
-                output += f"Status: {norm['Status']}\n\n"
+    if not container_id:
+        return f"✗ Container '{container}' not found on {hostname}"
 
-                if not labels:
-                    output += "No labels configured for this container.\n"
+    # Get logs via API
+    log_endpoint = f"/containers/{container_id}/logs?stdout=true&stderr=true&tail={tail}"
+
+    try:
+        # For logs endpoint, we need special handling as it returns plain text
+        config = container_hosts[hostname]
+        if runtime == "podman":
+            log_endpoint = f"/v4.0.0/libpod{log_endpoint}"
+
+        url = f"http://{config['endpoint']}{log_endpoint}"
+
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    log_data = await response.text()
+                    output = f"=== LOGS: {container} on {hostname} ===\n\n"
+                    output += f"Last {tail} lines:\n\n"
+                    output += log_data
+                    return output
                 else:
-                    output += f"Total Labels: {len(labels)}\n\n"
+                    return f"Error: Could not retrieve logs (HTTP {response.status})"
+    except Exception as e:
+        return f"Error retrieving logs: {str(e)}"
 
-                    label_groups = {}
-                    for key, value in sorted(labels.items()):
-                        prefix = key.split(".")[0] if "." in key else "other"
-                        if prefix not in label_groups:
-                            label_groups[prefix] = []
-                        label_groups[prefix].append((key, value))
 
-                    for prefix in sorted(label_groups.keys()):
-                        output += f"{prefix.upper()}:\n"
-                        for key, value in label_groups[prefix]:
-                            output += f"  {key}: {value}\n"
-                        output += "\n"
+@mcp.tool()
+def reload_inventory() -> str:
+    """Reload container hosts from Ansible inventory (useful after inventory changes)"""
+    global _container_hosts_cache
+    _container_hosts_cache = None
+    container_hosts = _load_container_hosts()
 
-                return output
+    output = "=== INVENTORY RELOADED ===\n\n"
+    output += f"✓ Loaded {len(container_hosts)} container host(s)\n\n"
 
-    return f"✗ Container '{container}' not found on {hostname}"
+    for hostname, config in container_hosts.items():
+        runtime = config["runtime"]
+        output += f"  • {hostname} ({runtime.upper()}) - {config['endpoint']}\n"
+
+    return output
 
 
 # Entry point

@@ -160,7 +160,7 @@ async def ollama_request(host_ip: str, endpoint: str, port: int = 11434, timeout
 # FastMCP Tools
 
 @mcp.tool()
-async def get_ollama_status() -> str:
+async def list_hosts() -> str:
     """Check status of all Ollama instances"""
     endpoints = _load_ollama_endpoints()
 
@@ -196,7 +196,7 @@ async def get_ollama_status() -> str:
 
 
 @mcp.tool()
-async def get_ollama_models(host: str) -> str:
+async def list_models(host: str) -> str:
     """
     Get models on a specific Ollama host
 
@@ -230,89 +230,101 @@ async def get_ollama_models(host: str) -> str:
 
 
 @mcp.tool()
-async def get_litellm_status() -> str:
-    """Check LiteLLM proxy status"""
-    url = f"http://{LITELLM_HOST}:{LITELLM_PORT}/health/liveliness"
-    logger.info(f"Checking LiteLLM at {url}")
+async def get_model_info(host: str, model_name: str) -> str:
+    """
+    Get detailed information about a specific model on a host
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, timeout=aiohttp.ClientTimeout(total=5)
-            ) as response:
-                logger.info(f"LiteLLM response status: {response.status}")
-                if response.status == 200:
-                    data = await response.text()  # Liveliness returns text, not JSON
-                    output = f"✓ LiteLLM Proxy: ONLINE\n"
-                    output += f"Endpoint: {LITELLM_HOST}:{LITELLM_PORT}\n\n"
-                    output += f"Liveliness Check: {data}"
-                    return output
-                elif response.status == 401:
-                    error_msg = MCPErrorClassifier.format_http_error(
-                        service_name="LiteLLM Proxy",
-                        status_code=401,
-                        hostname=f"{LITELLM_HOST}:{LITELLM_PORT}",
-                        custom_remediation="LiteLLM requires authentication. Configure API key if authentication is enabled."
-                    )
-                    return error_msg
-                elif response.status == 429:
-                    error_msg = MCPErrorClassifier.format_http_error(
-                        service_name="LiteLLM Proxy",
-                        status_code=429,
-                        hostname=f"{LITELLM_HOST}:{LITELLM_PORT}",
-                        custom_remediation="Rate limit exceeded. Wait a few moments before retrying."
-                    )
-                    return error_msg
-                else:
-                    error_msg = MCPErrorClassifier.format_http_error(
-                        service_name="LiteLLM Proxy",
-                        status_code=response.status,
-                        hostname=f"{LITELLM_HOST}:{LITELLM_PORT}"
-                    )
-                    log_error_with_context(
-                        logger,
-                        f"LiteLLM returned HTTP {response.status}",
-                        context={"host": LITELLM_HOST, "port": LITELLM_PORT, "status": response.status}
-                    )
-                    return error_msg
-    except asyncio.TimeoutError:
-        error_msg = MCPErrorClassifier.format_timeout_error(
-            service_name="LiteLLM Proxy",
-            hostname=LITELLM_HOST,
-            port=int(LITELLM_PORT),
-            timeout_seconds=5
-        )
-        log_error_with_context(
-            logger,
-            "LiteLLM connection timeout",
-            context={"host": LITELLM_HOST, "port": LITELLM_PORT}
-        )
-        return error_msg
-    except aiohttp.ClientConnectorError as e:
-        error_msg = MCPErrorClassifier.format_connection_error(
-            service_name="LiteLLM Proxy",
-            hostname=LITELLM_HOST,
-            port=int(LITELLM_PORT),
-            additional_guidance="Ensure LiteLLM proxy is running. Check: docker ps | grep litellm"
-        )
-        log_error_with_context(
-            logger,
-            "LiteLLM connection refused",
-            error=e,
-            context={"host": LITELLM_HOST, "port": LITELLM_PORT}
-        )
-        return error_msg
-    except Exception as e:
-        error_msg = MCPErrorClassifier.format_error_message(
-            service_name="LiteLLM Proxy",
-            error_type="Unexpected Error",
-            message=f"Failed to check LiteLLM status",
-            remediation="Check the error details and ensure LiteLLM proxy is accessible.",
-            details=str(e),
-            hostname=f"{LITELLM_HOST}:{LITELLM_PORT}"
-        )
-        log_error_with_context(logger, "LiteLLM check error", error=e, context={"host": LITELLM_HOST, "port": LITELLM_PORT})
-        return error_msg
+    Args:
+        host: Ollama host from your Ansible inventory
+        model_name: Name of the model to query
+    """
+    endpoints = _load_ollama_endpoints()
+
+    if host not in endpoints:
+        return f"Invalid host: {host}\nAvailable hosts: {', '.join(endpoints.keys())}"
+
+    ip = endpoints[host]
+    data = await ollama_request(ip, "/api/tags", OLLAMA_PORT, timeout=5)
+
+    if not data:
+        return f"{host} is offline or unreachable"
+
+    models = data.get("models", [])
+
+    # Find the specific model
+    for model in models:
+        name = model.get("name", "")
+        if name == model_name or name.startswith(model_name):
+            size = model.get("size", 0) / (1024**3)
+            modified = model.get("modified_at", "Unknown")
+            digest = model.get("digest", "Unknown")
+
+            output = f"=== MODEL INFO: {name} on {host} ===\n\n"
+            output += f"Size: {size:.2f}GB\n"
+            output += f"Modified: {modified}\n"
+            output += f"Digest: {digest}\n"
+
+            details = model.get("details", {})
+            if details:
+                output += f"\nDetails:\n"
+                for key, value in details.items():
+                    output += f"  {key}: {value}\n"
+
+            return output
+
+    return f"Model '{model_name}' not found on {host}"
+
+
+@mcp.tool()
+async def get_running_models() -> str:
+    """Get currently running models across all Ollama hosts"""
+    endpoints = _load_ollama_endpoints()
+
+    if not endpoints:
+        return "No Ollama endpoints configured."
+
+    output = "=== RUNNING MODELS ===\n\n"
+    total_running = 0
+
+    for host_name, ip in endpoints.items():
+        # Query running models endpoint
+        data = await ollama_request(ip, "/api/ps", OLLAMA_PORT, timeout=3)
+
+        if data:
+            models = data.get("models", [])
+            if models:
+                total_running += len(models)
+                output += f"• {host_name} ({ip}):\n"
+                for model in models:
+                    name = model.get("name", "Unknown")
+                    size = model.get("size", 0) / (1024**3)
+                    output += f"    - {name} ({size:.1f}GB)\n"
+                output += "\n"
+        else:
+            output += f"✗ {host_name} ({ip}): OFFLINE\n\n"
+
+    if total_running == 0:
+        output += "No models currently running\n"
+    else:
+        output = f"Total running: {total_running} model(s)\n\n" + output
+
+    return output
+
+
+@mcp.tool()
+def reload_inventory() -> str:
+    """Reload Ollama endpoints from Ansible inventory (useful after inventory changes)"""
+    global _endpoints_cache
+    _endpoints_cache = None
+    endpoints = _load_ollama_endpoints()
+
+    output = "=== INVENTORY RELOADED ===\n\n"
+    output += f"✓ Loaded {len(endpoints)} Ollama endpoint(s)\n\n"
+
+    for host_name, ip in endpoints.items():
+        output += f"  • {host_name} -> {ip}:{OLLAMA_PORT}\n"
+
+    return output
 
 
 # Entry point

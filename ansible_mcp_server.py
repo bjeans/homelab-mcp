@@ -140,7 +140,7 @@ def _find_group(data: dict, target: str, path: str = "") -> Optional[dict]:
 # FastMCP Tools
 
 @mcp.tool()
-def get_all_hosts() -> str:
+def list_all_hosts() -> str:
     """Get a list of all hosts in the Ansible inventory with their basic information"""
     inventory = _load_inventory()
     hosts = _extract_hosts(inventory.get("all", {}))
@@ -150,7 +150,7 @@ def get_all_hosts() -> str:
 
 
 @mcp.tool()
-def get_all_groups() -> str:
+def list_groups() -> str:
     """Get a list of all groups defined in the Ansible inventory"""
     inventory = _load_inventory()
     groups = _extract_groups(inventory.get("all", {}))
@@ -177,26 +177,10 @@ def get_host_details(hostname: str) -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool()
-def get_group_details(group_name: str) -> str:
-    """
-    Get detailed information about a specific group including all hosts and variables
-
-    Args:
-        group_name: The group name to query
-    """
-    inventory = _load_inventory()
-    group_data = _find_group(inventory.get("all", {}), group_name)
-
-    if group_data is None:
-        return json.dumps({"error": f"Group '{group_name}' not found in inventory"}, indent=2)
-
-    result = {"group_name": group_name, "details": group_data}
-    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
-def get_hosts_by_group(group_name: str) -> str:
+def get_group_hosts(group_name: str) -> str:
     """
     Get all hosts that belong to a specific group
 
@@ -220,7 +204,7 @@ def get_hosts_by_group(group_name: str) -> str:
 
 
 @mcp.tool()
-def search_hosts(pattern: str = "", variable: str = "", value: str = "") -> str:
+def query_hosts(pattern: str = "", variable: str = "", value: str = "") -> str:
     """
     Search for hosts by name pattern or by variable values
 
@@ -260,27 +244,6 @@ def search_hosts(pattern: str = "", variable: str = "", value: str = "") -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool()
-def get_inventory_summary() -> str:
-    """Get a high-level summary of the inventory including counts and structure"""
-    inventory = _load_inventory()
-    all_hosts = _extract_hosts(inventory.get("all", {}))
-    all_groups = _extract_groups(inventory.get("all", {}))
-
-    # Analyze host distribution by OS
-    os_distribution = {}
-    for hostname, host_data in all_hosts.items():
-        os_type = host_data["vars"].get("ansible_distribution", "Unknown")
-        os_distribution[os_type] = os_distribution.get(os_type, 0) + 1
-
-    result = {
-        "total_hosts": len(all_hosts),
-        "total_groups": len(all_groups),
-        "os_distribution": os_distribution,
-        "inventory_path": str(INVENTORY_PATH),
-        "groups": sorted(all_groups)[:10],  # First 10 groups
-    }
-    return json.dumps(result, indent=2)
 
 
 @mcp.tool()

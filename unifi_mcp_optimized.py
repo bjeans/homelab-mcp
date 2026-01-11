@@ -426,7 +426,7 @@ def format_network_summary(data: dict) -> str:
 # FastMCP Tools
 
 @mcp.tool()
-async def get_network_devices() -> str:
+async def list_devices() -> str:
     """Get all Unifi network devices (switches, APs, gateways) with status and basic info. This is cached for better performance."""
     try:
         data = await get_unifi_data()
@@ -449,7 +449,7 @@ async def get_network_devices() -> str:
 
 
 @mcp.tool()
-async def get_network_clients() -> str:
+async def list_clients() -> str:
     """Get all active network clients and their connections. This is cached for better performance."""
     try:
         data = await get_unifi_data()
@@ -471,7 +471,7 @@ async def get_network_clients() -> str:
 
 
 @mcp.tool()
-async def get_network_summary() -> str:
+async def get_network_stats() -> str:
     """Get network overview: VLANs, device count, client count. Fast summary view."""
     try:
         data = await get_unifi_data()
@@ -488,17 +488,78 @@ async def get_network_summary() -> str:
                 remediation="Check the logs for detailed error information. Ensure Unifi controller is configured correctly.",
                 details=str(e)
             )
-            log_error_with_context(logger, "Error in get_network_summary", error=e)
+            log_error_with_context(logger, "Error in get_network_stats", error=e)
             return error_msg
 
 
 @mcp.tool()
-async def refresh_network_data() -> str:
-    """Force refresh network data from Unifi controller (bypasses cache)."""
+async def get_device_details(device_name: str) -> str:
+    """
+    Get detailed information about a specific network device
+
+    Args:
+        device_name: Name of the device to query
+    """
     try:
-        logger.info("Force refreshing network data...")
-        data = await fetch_unifi_data()
-        return f"✓ Network data refreshed successfully\n\nDevices: {len(data.get('devices', []))}\nClients: {len(data.get('clients', []))}\nNetworks: {len(data.get('networks', []))}"
+        data = await get_unifi_data()
+        devices = data.get("devices", [])
+
+        # Find the device
+        for device in devices:
+            if device.get("name", "").lower() == device_name.lower():
+                device_type = device.get("type", "unknown")
+                name = device.get("name", "Unknown")
+                model = device.get("model", "N/A")
+                ip = device.get("ip", "N/A")
+                mac = device.get("mac", "N/A")
+                state = device.get("state", 0)
+                status = "✓ Online" if state == 1 else "✗ Offline"
+                version = device.get("version", "N/A")
+
+                output = f"=== DEVICE DETAILS: {name} ===\n\n"
+                output += f"Type: {device_type.upper()}\n"
+                output += f"Model: {model}\n"
+                output += f"IP: {ip}\n"
+                output += f"MAC: {mac}\n"
+                output += f"Status: {status}\n"
+                output += f"Firmware: {version}\n\n"
+
+                # Add type-specific details
+                if device_type == "uap":
+                    num_sta = device.get("num_sta", 0)
+                    output += f"Connected Clients: {num_sta}\n"
+
+                    # Radio details
+                    radio_table = device.get("radio_table", [])
+                    if radio_table:
+                        output += "\nRadios:\n"
+                        for radio in radio_table:
+                            name_radio = radio.get("name", "Unknown")
+                            channel = radio.get("channel", "N/A")
+                            tx_power = radio.get("tx_power", "N/A")
+                            output += f"  • {name_radio}: Channel {channel}, TX Power {tx_power}dBm\n"
+
+                elif device_type == "usw":
+                    port_table = device.get("port_table", [])
+                    ports_up = sum(1 for p in port_table if p.get("up", False))
+                    output += f"Ports: {ports_up}/{len(port_table)} up\n\n"
+
+                    output += "Port Table:\n"
+                    for port in port_table[:10]:  # Show first 10 ports
+                        port_idx = port.get("port_idx", "?")
+                        name_port = port.get("name", f"Port {port_idx}")
+                        up = port.get("up", False)
+                        speed = port.get("speed", 0)
+                        status_port = "UP" if up else "DOWN"
+                        output += f"  • {name_port}: {status_port}"
+                        if up:
+                            output += f" ({speed}Mbps)"
+                        output += "\n"
+
+                return output
+
+        return f"Device '{device_name}' not found"
+
     except Exception as e:
         error_text = str(e)
         if "✗ Unifi" in error_text or "→" in error_text:
@@ -507,11 +568,85 @@ async def refresh_network_data() -> str:
             error_msg = MCPErrorClassifier.format_error_message(
                 service_name="Unifi",
                 error_type="Tool Execution Error",
-                message="Failed to refresh network data",
+                message="Failed to get device details",
                 remediation="Check the logs for detailed error information. Ensure Unifi controller is configured correctly.",
                 details=str(e)
             )
-            log_error_with_context(logger, "Error in refresh_network_data", error=e)
+            log_error_with_context(logger, "Error in get_device_details", error=e)
+            return error_msg
+
+
+@mcp.tool()
+async def get_client_details(client_identifier: str) -> str:
+    """
+    Get detailed information about a specific network client
+
+    Args:
+        client_identifier: Client hostname, IP, or MAC address
+    """
+    try:
+        data = await get_unifi_data()
+        clients = data.get("clients", [])
+        networks = {n["_id"]: n for n in data.get("networks", [])}
+
+        # Find the client
+        for client in clients:
+            hostname = client.get("hostname", client.get("name", "Unknown"))
+            ip = client.get("ip", "N/A")
+            mac = client.get("mac", "N/A")
+
+            # Check if identifier matches hostname, IP, or MAC
+            if (client_identifier.lower() in hostname.lower() or
+                client_identifier == ip or
+                client_identifier.lower() == mac.lower()):
+
+                network_id = client.get("network_id", "unknown")
+                network = networks.get(network_id, {})
+                network_name = network.get("name", "Unknown")
+                vlan = network.get("vlan", "N/A")
+
+                is_wired = client.get("is_wired", False)
+                conn_type = "Wired" if is_wired else "Wireless"
+
+                output = f"=== CLIENT DETAILS: {hostname} ===\n\n"
+                output += f"IP: {ip}\n"
+                output += f"MAC: {mac}\n"
+                output += f"Connection: {conn_type}\n"
+                output += f"Network: {network_name} (VLAN {vlan})\n"
+
+                # Wireless-specific details
+                if not is_wired:
+                    essid = client.get("essid", "N/A")
+                    channel = client.get("channel", "N/A")
+                    rssi = client.get("rssi", "N/A")
+                    output += f"SSID: {essid}\n"
+                    output += f"Channel: {channel}\n"
+                    output += f"Signal: {rssi}dBm\n"
+
+                # Traffic stats
+                tx_bytes = client.get("tx_bytes", 0) / (1024**2)  # MB
+                rx_bytes = client.get("rx_bytes", 0) / (1024**2)  # MB
+                output += f"\nTraffic:\n"
+                output += f"  Upload: {tx_bytes:.2f}MB\n"
+                output += f"  Download: {rx_bytes:.2f}MB\n"
+
+                return output
+
+        return f"Client '{client_identifier}' not found"
+
+    except Exception as e:
+        error_text = str(e)
+        if "✗ Unifi" in error_text or "→" in error_text:
+            return error_text
+        else:
+            error_msg = MCPErrorClassifier.format_error_message(
+                service_name="Unifi",
+                error_type="Tool Execution Error",
+                message="Failed to get client details",
+                remediation="Check the logs for detailed error information. Ensure Unifi controller is configured correctly.",
+                details=str(e)
+            )
+            log_error_with_context(logger, "Error in get_client_details", error=e)
             return error_msg
 
 

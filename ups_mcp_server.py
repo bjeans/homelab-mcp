@@ -364,7 +364,7 @@ def format_ups_details(ups_name: str, ups_data: Optional[Dict], host_name: str) 
 # FastMCP Tools
 
 @mcp.tool()
-def list_ups_devices() -> str:
+def list_hosts() -> str:
     """List all UPS devices configured in the inventory"""
     inventory = _load_inventory()
     nut_servers = inventory.get("nut_servers", {})
@@ -408,7 +408,7 @@ def reload_inventory() -> str:
 
 
 @mcp.tool()
-async def get_ups_status() -> str:
+async def get_status() -> str:
     """Get status of all UPS devices across all NUT servers"""
     inventory = _load_inventory()
     nut_servers = inventory.get("nut_servers", {})
@@ -456,7 +456,7 @@ async def get_ups_status() -> str:
 
 
 @mcp.tool()
-async def get_ups_details(host: str, ups_name: str = "") -> str:
+async def get_details(host: str, ups_name: str = "") -> str:
     """
     Get detailed information for a specific UPS device
 
@@ -558,7 +558,7 @@ async def get_ups_details(host: str, ups_name: str = "") -> str:
 
 
 @mcp.tool()
-async def get_battery_runtime() -> str:
+async def get_battery_info() -> str:
     """Get battery runtime estimates for all UPS devices"""
     inventory = _load_inventory()
     nut_servers = inventory.get("nut_servers", {})
@@ -620,77 +620,6 @@ async def get_battery_runtime() -> str:
     return output
 
 
-@mcp.tool()
-async def get_power_events() -> str:
-    """Check for recent power events (UPS on battery, low battery, etc.)"""
-    inventory = _load_inventory()
-    nut_servers = inventory.get("nut_servers", {})
-
-    if not nut_servers:
-        return "No NUT servers configured."
-
-    output = "=== POWER EVENT MONITORING ===\n\n"
-    output += "Current Status Check:\n\n"
-
-    events_detected = []
-
-    for server_name, config in sorted(nut_servers.items()):
-        for ups in config["ups_devices"]:
-            ups_name = ups.get("name", "ups")
-
-            ups_data = await query_nut_server(
-                config["host"],
-                config["port"],
-                ups_name,
-                config.get("username", ""),
-                config.get("password", ""),
-            )
-
-            if ups_data and "variables" in ups_data:
-                vars = ups_data["variables"]
-                status = vars.get("ups.status", "UNKNOWN")
-                status_list = parse_ups_status(status)
-
-                # Check for power events
-                if "OB" in status or "On Battery" in status_list:
-                    events_detected.append({
-                        "ups": ups_name,
-                        "host": server_name,
-                        "event": "ON BATTERY",
-                        "battery": vars.get("battery.charge", "N/A"),
-                        "runtime": vars.get("battery.runtime", "N/A"),
-                    })
-                    output += f"⚠ ALERT: {ups_name} on {server_name} is ON BATTERY\n"
-                    output += f"  Battery: {vars.get('battery.charge', 'N/A')}%\n"
-                    output += f"  Runtime: {vars.get('battery.runtime', 'N/A')}s\n\n"
-
-                elif "LB" in status or "Low Battery" in status_list:
-                    events_detected.append({
-                        "ups": ups_name,
-                        "host": server_name,
-                        "event": "LOW BATTERY",
-                        "battery": vars.get("battery.charge", "N/A"),
-                        "runtime": vars.get("battery.runtime", "N/A"),
-                    })
-                    output += f"🔴 CRITICAL: {ups_name} on {server_name} - LOW BATTERY\n"
-                    output += f"  Battery: {vars.get('battery.charge', 'N/A')}%\n"
-                    output += f"  Runtime: {vars.get('battery.runtime', 'N/A')}s\n\n"
-
-                elif "OL" in status:
-                    output += f"✓ {ups_name} on {server_name}: Online (Normal)\n"
-
-                else:
-                    output += f"⚠ {ups_name} on {server_name}: {status}\n"
-
-    output += "\n--- SUMMARY ---\n"
-    if events_detected:
-        output += f"⚠ {len(events_detected)} power event(s) detected\n"
-    else:
-        output += "✓ All UPS devices online - No power events\n"
-
-    output += "\nNote: For historical event logging, consider integrating with NUT's upssched or monitoring tools.\n"
-
-    return output
 
 
 # Entry point
