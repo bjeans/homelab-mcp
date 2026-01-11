@@ -378,6 +378,8 @@ Contributions welcome! Please:
 4. Test thoroughly with real infrastructure
 5. Update documentation for changes
 
+**For maintainers:** See [MAINTAINERS.md](MAINTAINERS.md) for release processes and Docker Hub management.
+
 **Pull Request Process:**
 1. Fork the repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
@@ -395,6 +397,7 @@ Contributions welcome! Please:
 - **[DOCKER.md](DOCKER.md)** - Comprehensive Docker deployment guide
 - **[SECURITY.md](SECURITY.md)** - Security policies and best practices
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[MAINTAINERS.md](MAINTAINERS.md)** - Maintainer guide (release process)
 - **[CLAUDE.md](CLAUDE.md)** - Developer guide for AI assistants
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 - **[CI_CD_CHECKS.md](CI_CD_CHECKS.md)** - Automated testing guide

@@ -50,10 +50,11 @@ homelab-mcp/
 │
 ├── Documentation
 │   ├── README.md                      # User documentation
-│   ├── SECURITY.md                    # Security guidelines
+│   ├── SECURITY.md                    # Security guidelines (includes context-aware scanning)
 │   ├── CONTRIBUTING.md                # Contribution guide
+│   ├── MAINTAINERS.md                 # Maintainer guide (release process)
 │   ├── CHANGELOG.md                   # Version history
-│   ├── CONTEXT_AWARE_SECURITY.md      # Security scanning docs
+│   ├── CHANGELOG_ARCHIVE.md           # Historical changelog (v1.x)
 │   ├── CI_CD_CHECKS.md                # CI/CD automation docs
 │   └── LICENSE                        # MIT License
 │
