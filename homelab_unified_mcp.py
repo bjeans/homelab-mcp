@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Homelab Unified MCP Server
+Homelab Unified MCP Server v2.0 (FastMCP)
 Unified server that combines all homelab MCP servers into a single entry point
-Exposes all tools from docker, ping, ollama, pihole, and unifi servers with namespaced names
+Exposes all tools from docker, ping, ollama, pihole, unifi, ups, and ansible servers
+Supports stdio, HTTP, and SSE transports
 """
 
 import asyncio
@@ -13,18 +14,17 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from fastmcp import FastMCP
+
+from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
+
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
-import mcp.server.stdio
-import mcp.types as types
-from mcp.server import NotificationOptions, Server
-from mcp.server.models import InitializationOptions
-from pydantic import AnyUrl
+# Initialize FastMCP unified server
+mcp = FastMCP("Homelab Unified")
 
 # Load all environment variables ONCE before importing sub-servers
-from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
-
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / ".env"
 
@@ -47,311 +47,455 @@ load_env_file(ENV_FILE, allowed_vars=UNIFIED_ALLOWED_VARS, strict=True)
 # Set flag to skip individual server env loading
 os.environ["MCP_UNIFIED_MODE"] = "1"
 
-# Import all sub-servers (they will skip load_env_file if MCP_UNIFIED_MODE is set)
-from ansible_mcp_server import AnsibleInventoryMCP
-from docker_mcp_podman import DockerMCPServer
-from ping_mcp_server import PingMCPServer
-from ollama_mcp import OllamaMCPServer
-from pihole_mcp import PiholeMCPServer
-from unifi_mcp_optimized import UnifiMCPServer
-from ups_mcp_server import UpsMCPServer
-
-# Import AnsibleConfigManager for enum generation
-from ansible_config_manager import AnsibleConfigManager
-
-# Import yaml for loading Ansible inventory
-import yaml
+# Import tool functions from all sub-servers
+# Each server module exports its tools as decorated functions
+import ping_mcp_server
+import ups_mcp_server
+import ansible_mcp_server
+import ollama_mcp
+import pihole_mcp
+import docker_mcp_podman
+import unifi_mcp_optimized
 
 
-def load_shared_ansible_inventory():
+# Ansible Tools (prefix: ansible_)
+
+@mcp.tool()
+def ansible_list_all_hosts() -> str:
+    """List all hosts from Ansible inventory with their variables and group memberships"""
+    return ansible_mcp_server.list_all_hosts()
+
+
+@mcp.tool()
+def ansible_list_groups() -> str:
+    """List all groups from Ansible inventory"""
+    return ansible_mcp_server.list_groups()
+
+
+@mcp.tool()
+def ansible_get_host_details(hostname: str) -> str:
     """
-    Load Ansible inventory once for all servers to avoid file locking issues.
-    Returns the raw inventory dict or None if not found/error.
+    Get detailed information about a specific host including all variables and groups
+
+    Args:
+        hostname: The hostname to query from Ansible inventory
     """
-    ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
-
-    if not ansible_inventory_path or not Path(ansible_inventory_path).exists():
-        logger.info(f"Ansible inventory not found at: {ansible_inventory_path}")
-        logger.info("Sub-servers will use environment variable fallback")
-        return None
-
-    try:
-        logger.info(f"Loading shared Ansible inventory from: {ansible_inventory_path}")
-        with open(ansible_inventory_path, "r") as f:
-            inventory = yaml.safe_load(f)
-        logger.info("Ansible inventory loaded successfully")
-        return inventory
-    except Exception as e:
-        logger.error(f"Error loading Ansible inventory: {e}")
-        logger.info("Sub-servers will use environment variable fallback")
-        return None
+    return ansible_mcp_server.get_host_details(hostname)
 
 
-class UnifiedHomelabServer:
-    """Unified Homelab MCP Server - Combines all sub-servers"""
+@mcp.tool()
+def ansible_get_group_hosts(group: str) -> str:
+    """
+    List all hosts in a specific Ansible group
 
-    def __init__(self):
-        """Initialize all sub-servers"""
-        logger.info("Initializing Unified Homelab MCP Server...")
-
-        # Create MCP server instance
-        self.app = Server("homelab-unified")
-
-        # Load Ansible inventory ONCE to avoid file locking issues
-        shared_inventory = load_shared_ansible_inventory()
-
-        # Create AnsibleConfigManager for enum generation
-        ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
-        ansible_config = None
-        if ansible_inventory_path:
-            ansible_config = AnsibleConfigManager(
-                inventory_path=ansible_inventory_path,
-                logger_obj=logger
-            )
-            if ansible_config.is_available():
-                logger.info("AnsibleConfigManager initialized successfully for enum generation")
-            else:
-                logger.warning("AnsibleConfigManager not available, dynamic enums will be disabled")
-                ansible_config = None
-        else:
-            logger.info("No Ansible inventory path configured, dynamic enums will be disabled")
-
-        # Initialize all sub-servers with shared inventory and config manager
-        logger.info("Initializing Docker/Podman MCP Server...")
-        self.docker = DockerMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Ping MCP Server...")
-        self.ping = PingMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Ollama MCP Server...")
-        self.ollama = OllamaMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Pi-hole MCP Server...")
-        self.pihole = PiholeMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Unifi MCP Server...")
-        self.unifi = UnifiMCPServer()  # Unifi doesn't use Ansible inventory
-
-        logger.info("Initializing UPS MCP Server...")
-        self.ups = UpsMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Ansible Inventory MCP Server...")
-        self.ansible = AnsibleInventoryMCP(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        # Register handlers
-        self.setup_handlers()
-
-        logger.info("Unified Homelab MCP Server initialized successfully")
-
-    async def get_tool_catalog(self) -> list[types.TextContent]:
-        """
-        Generate a grouped catalog of all tools from unified server.
-        Returns a JSON object (as a string) containing both Markdown for human readability and raw JSON for programmatic use, with both formats embedded as fields.
-        """
-        catalog = await self._generate_tool_catalog()
-        return [types.TextContent(
-            type="text",
-            text=json.dumps(catalog, indent=2)
-        )]
-
-    async def _generate_tool_catalog(self) -> dict:
-        """
-        Generate the tool catalog as a dictionary.
-        Can be used by both tool and resource handlers.
-        Returns dict with 'markdown' and 'json' keys.
-        """
-        # Collect tools from all sub-servers (same pattern as handle_list_tools)
-        all_tools = []
-        all_tools.extend(await self.ansible.list_tools())
-        all_tools.extend(await self.docker.list_tools())
-        all_tools.extend(await self.ping.list_tools())
-        all_tools.extend(await self.ollama.list_tools())
-        all_tools.extend(await self.pihole.list_tools())
-        all_tools.extend(await self.unifi.list_tools())
-        all_tools.extend(await self.ups.list_tools())
-
-        # Add the catalog tool itself for completeness and discoverability
-        all_tools.append(types.Tool(
-            name="homelab_get_tool_catalog",
-            description="Get a grouped catalog of all available Homelab MCP tools, including this catalog tool itself.",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        ))
-        # Group by prefix
-        grouped = defaultdict(list)
-        for tool in all_tools:
-            prefix = tool.name.split("_")[0]
-            grouped[prefix].append({
-                "name": tool.name,
-                "description": tool.description,
-                "schema": tool.inputSchema  # Already a dict, not JSON string
-            })
-
-        # Build markdown
-        md_lines = ["# Homelab MCP Tool Catalog\n"]
-        for category in sorted(grouped.keys()):
-            md_lines.append(f"## {category.capitalize()} Tools\n")
-            for entry in sorted(grouped[category], key=lambda x: x["name"]):
-                md_lines.append(f"### {entry['name']}\n")
-                md_lines.append(f"**Description:** {entry['description']}\n")
-                if entry["schema"] and "properties" in entry["schema"]:
-                    md_lines.append("**Parameters:**")
-                    schema = entry["schema"]
-                    for prop, details in schema.get("properties", {}).items():
-                        req = "required" if prop in schema.get("required", []) else "optional"
-                        md_lines.append(f"- `{prop}` ({req}): {details.get('description', '')}")
-                md_lines.append("")
-
-        # Return both formats
-        return {
-            "markdown": "\n".join(md_lines),
-            "json": dict(grouped)  # Convert defaultdict to regular dict
-        }
-
-    def setup_handlers(self):
-        """Register MCP handlers"""
-
-        @self.app.list_tools()
-        async def handle_list_tools() -> list[types.Tool]:
-            """List all available tools from all sub-servers"""
-            tools = []
-
-            # Get tools from each sub-server
-            tools.extend(await self.ansible.list_tools())
-            tools.extend(await self.docker.list_tools())
-            tools.extend(await self.ping.list_tools())
-            tools.extend(await self.ollama.list_tools())
-            tools.extend(await self.pihole.list_tools())
-            tools.extend(await self.unifi.list_tools())
-            tools.extend(await self.ups.list_tools())
-
-            # Add the catalog tool itself
-            tools.append(types.Tool(
-                name="homelab_get_tool_catalog",
-                description="Lists all available tools grouped by category with descriptions and input schemas",
-                inputSchema={"type": "object", "properties": {}, "required": []},
-                title="Get Tool Catalog",
-                annotations=types.ToolAnnotations(
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=False,
-                )
-            ))
-
-            logger.info(f"Total tools available: {len(tools)}")
-            return tools
-
-        @self.app.call_tool()
-        async def handle_call_tool(
-            name: str, arguments: dict | None
-        ) -> list[types.TextContent]:
-            """Route tool calls to the appropriate sub-server"""
-            logger.info(f"Tool called: {name}")
-
-            try:
-                # Handle catalog tool
-                if name == "homelab_get_tool_catalog":
-                    return await self.get_tool_catalog()
-
-                # Route based on tool name prefix
-                if name.startswith("ansible_"):
-                    return await self.ansible.handle_tool(name, arguments)
-                elif name.startswith("docker_"):
-                    return await self.docker.handle_tool(name, arguments)
-                elif name.startswith("ping_"):
-                    return await self.ping.handle_tool(name, arguments)
-                elif name.startswith("ollama_"):
-                    return await self.ollama.handle_tool(name, arguments)
-                elif name.startswith("pihole_"):
-                    return await self.pihole.handle_tool(name, arguments)
-                elif name.startswith("unifi_"):
-                    return await self.unifi.handle_tool(name, arguments)
-                elif name.startswith("ups_"):
-                    return await self.ups.handle_tool(name, arguments)
-                else:
-                    return [
-                        types.TextContent(
-                            type="text", text=f"Error: Unknown tool '{name}'"
-                        )
-                    ]
-
-            except Exception as e:
-                logger.error(f"Error executing tool {name}: {e}", exc_info=True)
-                return [
-                    types.TextContent(
-                        type="text", text=f"Error executing {name}: {str(e)}"
-                    )
-                ]
-
-        @self.app.list_resources()
-        async def handle_list_resources() -> list[types.Resource]:
-            """List all available resources"""
-            return [
-                types.Resource(
-                    uri="homelab://catalog/tools",
-                    name="tool_catalog",
-                    description="Catalog of all available tools grouped by category with descriptions and input schemas",
-                    mimeType="application/json"
-                )
-            ]
-
-        @self.app.read_resource()
-        async def handle_read_resource(uri: AnyUrl) -> str:
-            """Read resource content"""
-            uri_str = str(uri)
-            logger.info(f"Resource read requested: {uri_str}")
-
-            if uri_str == "homelab://catalog/tools":
-                catalog = await self._generate_tool_catalog()
-                return json.dumps(catalog, indent=2)
-            else:
-                raise ValueError(f"Unknown resource: {uri_str}")
+    Args:
+        group: The group name to query
+    """
+    return ansible_mcp_server.get_group_hosts(group)
 
 
-async def main():
-    """Run the unified MCP server"""
-    logger.info("Starting Unified Homelab MCP Server...")
+@mcp.tool()
+async def ansible_query_hosts(query: str) -> str:
+    """
+    Query hosts using Ansible-style patterns (supports wildcards, groups, etc.)
 
-    # Create unified server
-    server = UnifiedHomelabServer()
-
-    # Run server
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.app.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="homelab-unified",
-                server_version="2.0.0",
-                capabilities=server.app.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
-        )
+    Args:
+        query: Ansible pattern (e.g., 'webservers', 'db*', 'all', '!exclude')
+    """
+    return await ansible_mcp_server.query_hosts(query)
 
 
+@mcp.tool()
+def ansible_reload_inventory() -> str:
+    """Reload Ansible inventory from disk (useful after inventory changes)"""
+    return ansible_mcp_server.reload_inventory()
+
+
+# Docker Tools (prefix: docker_)
+
+@mcp.tool()
+def docker_list_all_hosts() -> str:
+    """List all Docker/Podman hosts from Ansible inventory"""
+    return docker_mcp_podman.list_all_hosts()
+
+
+@mcp.tool()
+async def docker_list_containers(host: str = None) -> str:
+    """
+    List all containers across Docker/Podman hosts
+
+    Args:
+        host: Optional specific host to query (default: all hosts)
+    """
+    return await docker_mcp_podman.list_containers(host)
+
+
+@mcp.tool()
+async def docker_get_container_details(container_id: str, host: str = None) -> str:
+    """
+    Get detailed information about a specific container
+
+    Args:
+        container_id: Container ID or name
+        host: Optional specific host (default: search all hosts)
+    """
+    return await docker_mcp_podman.get_container_details(container_id, host)
+
+
+@mcp.tool()
+async def docker_get_container_logs(container_id: str, host: str = None, lines: int = 100) -> str:
+    """
+    Get logs from a container
+
+    Args:
+        container_id: Container ID or name
+        host: Optional specific host
+        lines: Number of log lines to retrieve (default: 100)
+    """
+    return await docker_mcp_podman.get_container_logs(container_id, host, lines)
+
+
+@mcp.tool()
+async def docker_get_stats(host: str = None) -> str:
+    """
+    Get resource usage statistics for containers
+
+    Args:
+        host: Optional specific host (default: all hosts)
+    """
+    return await docker_mcp_podman.get_stats(host)
+
+
+@mcp.tool()
+def docker_reload_inventory() -> str:
+    """Reload Docker/Podman inventory from disk"""
+    return docker_mcp_podman.reload_inventory()
+
+
+# Ping Tools (prefix: ping_)
+
+@mcp.tool()
+def ping_list_groups() -> str:
+    """List all available Ansible groups for pinging"""
+    return ping_mcp_server.list_groups()
+
+
+@mcp.tool()
+def ping_list_hosts() -> str:
+    """List all hosts in the Ansible inventory with their resolved IPs"""
+    return ping_mcp_server.list_hosts()
+
+
+@mcp.tool()
+def ping_reload_inventory() -> str:
+    """Reload Ansible inventory from disk"""
+    return ping_mcp_server.reload_inventory()
+
+
+@mcp.tool()
+async def ping_host_by_name(hostname: str, count: int = 4, timeout: int = 5) -> str:
+    """
+    Ping a specific host by hostname from Ansible inventory
+
+    Args:
+        hostname: Hostname from Ansible inventory
+        count: Number of ping packets to send (default: 4)
+        timeout: Timeout in seconds per ping (default: 5)
+    """
+    return await ping_mcp_server.ping_host_by_name(hostname, count, timeout)
+
+
+@mcp.tool()
+async def ping_group(group: str, count: int = 2, timeout: int = 3) -> str:
+    """
+    Ping all hosts in an Ansible group
+
+    Args:
+        group: Ansible group name from your inventory
+        count: Number of ping packets to send (default: 2)
+        timeout: Timeout in seconds per ping (default: 3)
+    """
+    return await ping_mcp_server.ping_group(group, count, timeout)
+
+
+@mcp.tool()
+async def ping_all(count: int = 2, timeout: int = 3) -> str:
+    """
+    Ping all hosts in the infrastructure
+
+    Args:
+        count: Number of ping packets to send (default: 2)
+        timeout: Timeout in seconds per ping (default: 3)
+    """
+    return await ping_mcp_server.ping_all(count, timeout)
+
+
+# Ollama Tools (prefix: ollama_)
+
+@mcp.tool()
+def ollama_list_hosts() -> str:
+    """List all Ollama hosts from Ansible inventory"""
+    return ollama_mcp.list_hosts()
+
+
+@mcp.tool()
+async def ollama_list_models(host: str = None) -> str:
+    """
+    List all available models across Ollama hosts
+
+    Args:
+        host: Optional specific host to query (default: all hosts)
+    """
+    return await ollama_mcp.list_models(host)
+
+
+@mcp.tool()
+async def ollama_get_model_info(model_name: str, host: str = None) -> str:
+    """
+    Get detailed information about a specific model
+
+    Args:
+        model_name: Name of the model to query
+        host: Optional specific host
+    """
+    return await ollama_mcp.get_model_info(model_name, host)
+
+
+@mcp.tool()
+async def ollama_get_running_models(host: str = None) -> str:
+    """
+    Get currently running models
+
+    Args:
+        host: Optional specific host (default: all hosts)
+    """
+    return await ollama_mcp.get_running_models(host)
+
+
+@mcp.tool()
+def ollama_reload_inventory() -> str:
+    """Reload Ollama inventory from disk"""
+    return ollama_mcp.reload_inventory()
+
+
+# Pi-hole Tools (prefix: pihole_)
+
+@mcp.tool()
+def pihole_list_hosts() -> str:
+    """List all Pi-hole hosts from Ansible inventory"""
+    return pihole_mcp.list_hosts()
+
+
+@mcp.tool()
+async def pihole_get_summary(host: str = None) -> str:
+    """
+    Get Pi-hole summary statistics
+
+    Args:
+        host: Optional specific host (default: all hosts)
+    """
+    return await pihole_mcp.get_summary(host)
+
+
+@mcp.tool()
+async def pihole_get_top_items(host: str = None, count: int = 10) -> str:
+    """
+    Get top blocked domains and top queries
+
+    Args:
+        host: Optional specific host
+        count: Number of items to return (default: 10)
+    """
+    return await pihole_mcp.get_top_items(host, count)
+
+
+@mcp.tool()
+async def pihole_get_query_types(host: str = None) -> str:
+    """
+    Get breakdown of query types
+
+    Args:
+        host: Optional specific host
+    """
+    return await pihole_mcp.get_query_types(host)
+
+
+@mcp.tool()
+async def pihole_get_forward_destinations(host: str = None) -> str:
+    """
+    Get forward destination statistics
+
+    Args:
+        host: Optional specific host
+    """
+    return await pihole_mcp.get_forward_destinations(host)
+
+
+@mcp.tool()
+def pihole_reload_inventory() -> str:
+    """Reload Pi-hole inventory from disk"""
+    return pihole_mcp.reload_inventory()
+
+
+# Unifi Tools (prefix: unifi_)
+
+@mcp.tool()
+async def unifi_list_devices() -> str:
+    """List all Unifi network devices"""
+    return await unifi_mcp_optimized.list_devices()
+
+
+@mcp.tool()
+async def unifi_get_device_details(device_id: str) -> str:
+    """
+    Get detailed information about a specific device
+
+    Args:
+        device_id: Device ID or MAC address
+    """
+    return await unifi_mcp_optimized.get_device_details(device_id)
+
+
+@mcp.tool()
+async def unifi_list_clients() -> str:
+    """List all connected clients"""
+    return await unifi_mcp_optimized.list_clients()
+
+
+@mcp.tool()
+async def unifi_get_client_details(client_id: str) -> str:
+    """
+    Get detailed information about a specific client
+
+    Args:
+        client_id: Client ID or MAC address
+    """
+    return await unifi_mcp_optimized.get_client_details(client_id)
+
+
+@mcp.tool()
+async def unifi_get_network_stats() -> str:
+    """Get overall network statistics"""
+    return await unifi_mcp_optimized.get_network_stats()
+
+
+# UPS Tools (prefix: ups_)
+
+@mcp.tool()
+def ups_list_hosts() -> str:
+    """List all UPS/NUT hosts from Ansible inventory"""
+    return ups_mcp_server.list_hosts()
+
+
+@mcp.tool()
+async def ups_get_status(host: str = None) -> str:
+    """
+    Get UPS status from all NUT servers
+
+    Args:
+        host: Optional specific host (default: all hosts)
+    """
+    return await ups_mcp_server.get_status(host)
+
+
+@mcp.tool()
+async def ups_get_details(host: str) -> str:
+    """
+    Get detailed UPS information from specific NUT server
+
+    Args:
+        host: Hostname of the NUT server to query
+    """
+    return await ups_mcp_server.get_details(host)
+
+
+@mcp.tool()
+async def ups_get_battery_info(host: str = None) -> str:
+    """
+    Get battery information from UPS devices
+
+    Args:
+        host: Optional specific host
+    """
+    return await ups_mcp_server.get_battery_info(host)
+
+
+@mcp.tool()
+def ups_reload_inventory() -> str:
+    """Reload UPS/NUT inventory from disk"""
+    return ups_mcp_server.reload_inventory()
+
+
+# Unified Catalog Tool
+
+@mcp.tool()
+def homelab_get_tool_catalog() -> str:
+    """
+    Get a grouped catalog of all available Homelab MCP tools
+    Returns JSON with both markdown and structured data formats
+    """
+    # Get all registered tools from the FastMCP instance
+    # Note: FastMCP doesn't have a public API to list tools, so we'll generate manually
+    tools_by_category = {
+        "ansible": [
+            "ansible_list_all_hosts", "ansible_list_groups", "ansible_get_host_details",
+            "ansible_get_group_hosts", "ansible_query_hosts", "ansible_reload_inventory"
+        ],
+        "docker": [
+            "docker_list_all_hosts", "docker_list_containers", "docker_get_container_details",
+            "docker_get_container_logs", "docker_get_stats", "docker_reload_inventory"
+        ],
+        "ping": [
+            "ping_list_groups", "ping_list_hosts", "ping_reload_inventory",
+            "ping_host_by_name", "ping_group", "ping_all"
+        ],
+        "ollama": [
+            "ollama_list_hosts", "ollama_list_models", "ollama_get_model_info",
+            "ollama_get_running_models", "ollama_reload_inventory"
+        ],
+        "pihole": [
+            "pihole_list_hosts", "pihole_get_summary", "pihole_get_top_items",
+            "pihole_get_query_types", "pihole_get_forward_destinations", "pihole_reload_inventory"
+        ],
+        "unifi": [
+            "unifi_list_devices", "unifi_get_device_details", "unifi_list_clients",
+            "unifi_get_client_details", "unifi_get_network_stats"
+        ],
+        "ups": [
+            "ups_list_hosts", "ups_get_status", "ups_get_details",
+            "ups_get_battery_info", "ups_reload_inventory"
+        ],
+        "homelab": [
+            "homelab_get_tool_catalog"
+        ]
+    }
+
+    # Build markdown catalog
+    md_lines = ["# Homelab MCP Tool Catalog\n"]
+    md_lines.append(f"Total tools: {sum(len(tools) for tools in tools_by_category.values())}\n")
+
+    for category in sorted(tools_by_category.keys()):
+        md_lines.append(f"\n## {category.capitalize()} Tools ({len(tools_by_category[category])} tools)\n")
+        for tool_name in sorted(tools_by_category[category]):
+            md_lines.append(f"- `{tool_name}`")
+
+    catalog = {
+        "markdown": "\n".join(md_lines),
+        "categories": tools_by_category,
+        "total_tools": sum(len(tools) for tools in tools_by_category.values())
+    }
+
+    return json.dumps(catalog, indent=2)
+
+
+# Entry point
 if __name__ == "__main__":
-    asyncio.run(main())
+    logger.info("Starting Unified Homelab MCP Server...")
+    logger.info("All sub-servers initialized via import")
+
+    # Run with stdio transport by default (backward compatible)
+    mcp.run()
+
+    # Alternative transports (comment/uncomment as needed):
+    # mcp.run(transport="http", host="0.0.0.0", port=8000)
+    # mcp.run(transport="sse", host="0.0.0.0", port=8000)

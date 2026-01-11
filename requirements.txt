@@ -1,5 +1,6 @@
 # MCP Server Framework
 mcp>=1.0.0
+fastmcp>=2.11.0
 
 # Ansible configuration management (official library)
 # Falls back to manual YAML parsing on unsupported systems (e.g., Windows)

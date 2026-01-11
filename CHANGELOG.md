@@ -20,6 +20,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unified Server:** Updated from 6 to 7 MCP servers with Ansible integration (Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS)
 - **Documentation:** Updated README.md to reflect Ansible integration completion
 
+## [2.3.0] - 2026-01-11
+
+### Added
+- **FastMCP Framework Migration:** Complete migration of all 7 MCP servers to the FastMCP framework
+  - Modern, simplified server architecture reducing code complexity
+  - Support for multiple transport mechanisms (stdio, HTTP, SSE)
+  - Improved error handling and logging capabilities
+  - Enhanced type safety and code organization
+- **Multiple Transport Support:**
+  - **stdio transport (default)** - Traditional MCP protocol via stdin/stdout for Claude Desktop
+  - **HTTP transport** - REST API for remote deployments and web integrations
+  - **SSE transport** - Server-Sent Events for real-time bidirectional communication
+  - All transports configurable via command-line arguments (`--transport`, `--host`, `--port`)
+- **Comprehensive Documentation:**
+  - New FastMCP framework section in README.md explaining transport options
+  - Migration guide for v2.2.0 users (no breaking changes)
+  - Examples for running servers with different transport mechanisms
+  - Updated version number to v2.3.0 throughout documentation
+
+### Changed
+- **All 7 MCP Servers:** Migrated from standard MCP SDK to FastMCP framework
+  - `homelab_unified_mcp.py` - Unified server with all 7 servers
+  - `ansible_mcp_server.py` - Ansible inventory queries
+  - `docker_mcp_podman.py` - Docker/Podman container monitoring
+  - `ollama_mcp.py` - Ollama AI model management
+  - `pihole_mcp.py` - Pi-hole DNS monitoring
+  - `ping_mcp_server.py` - Network connectivity testing
+  - `unifi_mcp_optimized.py` - Unifi network device monitoring
+  - `ups_mcp_server.py` - UPS/NUT monitoring
+- **Server Architecture:** Simplified from dual-mode pattern to unified FastMCP pattern
+  - Eliminates complex class/module handler splitting
+  - Cleaner tool registration and dispatch
+  - More maintainable codebase for future development
+- **Documentation:** Updated README.md with FastMCP framework section and transport options
+
+### Improved
+- **Code Quality:** 38% reduction in codebase (1,754 lines eliminated)
+  - Cleaner server implementations
+  - Reduced code duplication
+  - Better separation of concerns
+  - Improved maintainability for contributors
+- **Developer Experience:**
+  - Simpler pattern for creating new servers
+  - Easier debugging with FastMCP tools
+  - Better error messages and logging
+- **Deployment Flexibility:** Multiple transport options enable new use cases
+  - Remote server deployments with HTTP transport
+  - Real-time monitoring with SSE transport
+  - Web-based integrations
+  - Load balancing scenarios
+
+### Backward Compatibility
+- ✅ **No breaking changes** - All existing Claude Desktop configurations continue to work
+- ✅ **Same functionality** - All 7 servers and all tools remain identical
+- ✅ **Same tool names** - Unified mode prefixes and standalone tool names unchanged
+- ✅ **Same configuration** - `.env` and Ansible inventory files work without modification
+- Upgrade path: Simply update and restart Claude Desktop - no action required
+
+### Technical Details
+- FastMCP framework provides native support for multiple transports
+- Reduced server initialization overhead with FastMCP's optimized startup
+- Improved async/await handling for better concurrency
+- Enhanced tool metadata support for better Claude Desktop integration
+- Cleaner error handling with FastMCP's built-in error management
+
+### Benefits
+- **For Users:** No disruption - everything works as before, with new deployment options
+- **For Developers:** Cleaner codebase and easier to add new servers
+- **For Operations:** New transport options enable more flexible deployments
+- **For Maintenance:** Simpler code reduces bugs and makes fixes faster
+
 ## [2.2.1] - 2026-01-07
 
 ### Security

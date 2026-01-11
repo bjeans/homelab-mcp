@@ -93,7 +93,7 @@ This README covers installation and basic setup. The project instructions provid
 
 ## 🎯 Deployment Options
 
-**Version 2.2.0** offers flexible deployment with two modes and two methods:
+**Version 2.3.0** offers flexible deployment with two modes and two methods:
 
 ### Deployment Modes
 
@@ -202,6 +202,102 @@ python homelab_unified_mcp.py
 ---
 
 **Migration Guide:** See [MIGRATION.md](MIGRATION.md) for detailed instructions on switching between modes or methods.
+
+---
+
+## ⚡ FastMCP Framework (New in v2.3.0)
+
+**Version 2.3.0 introduces FastMCP:** A modern MCP framework that simplifies server architecture while adding support for multiple transport mechanisms.
+
+### What is FastMCP?
+
+FastMCP is a lightweight framework that:
+- ✅ Reduces server code by 38% (1,754 lines eliminated)
+- ✅ Simplifies the dual-mode pattern into a unified architecture
+- ✅ Adds support for HTTP and SSE transports (in addition to stdio)
+- ✅ Maintains full backward compatibility with existing Claude Desktop configurations
+- ✅ Improves code maintainability and makes adding new servers easier
+
+### Transport Options
+
+FastMCP servers can operate using different transport mechanisms:
+
+#### 1. Standard Input/Output (stdio) - Default
+The traditional MCP transport used by Claude Desktop. This is the default and recommended option for most users.
+
+```bash
+# Run with stdio (default)
+python homelab_unified_mcp.py
+
+# Or explicitly specify stdio transport
+python homelab_unified_mcp.py --transport stdio
+```
+
+**When to use:**
+- Claude Desktop integration (default mode)
+- Most common use case
+- No additional configuration needed
+
+#### 2. HTTP Transport
+Run MCP servers as HTTP services for remote or flexible deployment scenarios.
+
+```bash
+# Start server with HTTP transport
+python homelab_unified_mcp.py --transport http --host 0.0.0.0 --port 8000
+
+# Test the HTTP endpoint
+curl http://localhost:8000/tools
+```
+
+**When to use:**
+- Deploying servers remotely
+- Web-based integrations
+- Multi-client scenarios
+- Load balancing requirements
+
+#### 3. Server-Sent Events (SSE) Transport
+Stream-based protocol for real-time bidirectional communication.
+
+```bash
+# Start server with SSE transport
+python homelab_unified_mcp.py --transport sse --host 0.0.0.0 --port 8000
+
+# Connect via SSE client
+curl http://localhost:8000/sse
+```
+
+**When to use:**
+- Real-time monitoring applications
+- Browser-based integrations
+- Event-driven architectures
+- Streaming responses
+
+### Configuring Claude Desktop with FastMCP
+
+Claude Desktop continues to use stdio transport by default. No configuration changes are required:
+
+```json
+{
+  "mcpServers": {
+    "homelab-unified": {
+      "command": "python",
+      "args": ["C:\\Path\\To\\Homelab-MCP\\homelab_unified_mcp.py"]
+    }
+  }
+}
+```
+
+### Migration from v2.2.0
+
+If you're upgrading from v2.2.0:
+- ✅ **No breaking changes** - Your existing configuration continues to work unchanged
+- ✅ **Same functionality** - All 7 servers and all tools remain identical
+- ✅ **Cleaner code** - Internal refactoring produces the same results
+- ✅ **New options** - Optional HTTP/SSE transports available if needed
+
+No action required - just update and restart Claude Desktop.
+
+---
 
 ## 🚀 Quick Start
 
