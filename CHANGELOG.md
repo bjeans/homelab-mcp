@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**For historical changes (v1.x), see [CHANGELOG_ARCHIVE.md](CHANGELOG_ARCHIVE.md)**
+
+---
+
 ## [Unreleased]
 
 ### Added
@@ -19,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Unified Server:** Updated from 6 to 7 MCP servers with Ansible integration (Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS)
 - **Documentation:** Updated README.md to reflect Ansible integration completion
+
+---
 
 ## [2.2.1] - 2026-01-07
 
@@ -40,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Note
 - 2 vulnerabilities remain in Alpine base image packages (zlib, busybox) with no upstream fix available yet
+
+---
 
 ## [2.2.0] - 2025-11-20
 
@@ -66,30 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Pi-hole MCP Server (`pihole_mcp.py`):** Enhanced error handling in authentication and API requests
-  - Specific handling for 401 (Invalid Password) vs 403 (Insufficient Permissions)
-  - Detailed session authentication error messages with Pi-hole Settings guidance
-  - Improved timeout and connection error messages with troubleshooting commands
-  - Context logging for all API failures
 - **Unifi MCP Server (`unifi_mcp_optimized.py`):** **CRITICAL FIX** for "Exporter failed with code 1" issue (#32)
-  - Parse subprocess stderr to identify specific error patterns (auth, connection, timeout, certificate)
-  - Map exit codes to specific error types with remediation
-  - Pre-flight validation for missing API keys with helpful guidance
-  - Distinguish between invalid API key (401) and connection failures
-  - Include exporter output in error messages for debugging
-  - Guidance on where to find/generate Unifi API keys
 - **Ollama MCP Server (`ollama_mcp.py`):** Improved error classification for Ollama and LiteLLM
-  - HTTP status code differentiation (401, 404, 429, 500)
-  - Enhanced LiteLLM proxy error handling with rate limit detection
-  - Specific guidance for authentication and service availability
-  - Context logging for all API failures
 - **Docker/Podman MCP Server (`docker_mcp_podman.py`):** Better container runtime error messages
-  - Distinguish between authentication (401), not found (404), and server errors (500)
-  - Socket connection failures with clear guidance
-  - Context logging for debugging container API issues
 - **UPS MCP Server (`ups_mcp_server.py`):** Enhanced NUT protocol error handling
-  - Network error classification (timeout, connection refused, OSError)
-  - Context logging for all NUT server communication failures
-  - Improved debugging information for UPS monitoring issues
 
 ### Improved
 - **User Experience:** Error messages now guide users to the exact fix instead of generic "failed" messages
@@ -99,22 +87,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Developer Experience:** Consistent error handling pattern across all servers makes adding new servers easier
 
 ### Fixed
-- **Issue #32:** "Exporter failed with code 1" error now provides specific details:
-  - Invalid API key detection with Unifi Settings guidance
-  - Connection failure detection with network troubleshooting commands
-  - Timeout detection with service health check guidance
-  - Certificate error detection with SSL troubleshooting
-  - No more ambiguous exit codes - users know exactly what went wrong
+- **Issue #32:** "Exporter failed with code 1" error now provides specific details
 - **Error Message Inconsistency:** All servers now use standardized error format
-- **Missing Context:** Errors now include all relevant debugging information (timestamp, host, status)
+- **Missing Context:** Errors now include all relevant debugging information
 - **Credential Exposure:** Sensitive data no longer appears in error messages or logs
 
-### Technical Details
-- HTTP error codes properly classified: 400, 401, 403, 404, 429, 500, 502, 503, 504
-- Error pattern matching with regex for common issues (invalid API key, connection refused, timeout, certificate errors)
-- Automatic sensitive data sanitization using configurable regex patterns
-- Context-aware logging that preserves debugging information while protecting credentials
-- Backward compatible - existing code continues to work, but with better error messages
+---
 
 ## [2.1.0] - 2025-11-19
 
@@ -127,36 +105,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hostname Normalization Helper:** Shared `_normalize_hostname()` method for consistent hostname formatting
 - **Group-based Host Lookup:** New `_get_hosts_from_group()` helper for cleaner code
 - **Test Coverage:** Added `tests/ansible_enum_tests.py` with comprehensive tests for enum generation methods
-  - Tests for hostname normalization edge cases (FQDN, uppercase, underscores, mixed cases)
-  - Tests for graceful degradation when Ansible is unavailable
-  - Tests for enum method signatures and return types
-  - Runnable with pytest or standalone: `python3 tests/ansible_enum_tests.py`
 
 ### Changed
 - **Code Refactoring:** Reduced code duplication in `ansible_config_manager.py`
-  - Refactored enum methods to use shared `get_hosts_by_capability()` and `_get_hosts_from_group()`
+  - Refactored enum methods to use shared helpers
   - Reduced approximately 100 lines of duplicated logic
-  - Improved maintainability and consistency
 - **MCP Server Updates:** All relevant servers now accept `ansible_config` parameter
-  - `ping_mcp_server.py`: Dynamic enums for Ansible groups in `ping_ping_group` tool
-  - `ollama_mcp.py`: Dynamic enums for Ollama hosts in `ollama_get_models` tool
-  - `ups_mcp_server.py`: Dynamic enums for NUT hosts in `ups_get_ups_details` tool
-  - `docker_mcp_podman.py`: Consistency update (already had enum support)
-  - `pihole_mcp.py`: Consistency update (prepared for future host-specific tools)
+  - `ping_mcp_server.py`: Dynamic enums for Ansible groups
+  - `ollama_mcp.py`: Dynamic enums for Ollama hosts
+  - `ups_mcp_server.py`: Dynamic enums for NUT hosts
+  - `docker_mcp_podman.py`: Consistency update
+  - `pihole_mcp.py`: Consistency update
 - **Unified Server:** `homelab_unified_mcp.py` now creates and passes `AnsibleConfigManager` to all sub-servers
 
 ### Improved
 - **User Experience:** Dropdown menus reduce manual entry and discovery tool calls
 - **Code Quality:** Centralized hostname normalization prevents inconsistencies
 - **Maintainability:** Shared helpers make adding new servers easier
-- **Documentation:** README.md includes new section explaining dynamic enum feature
 
-### Benefits
-- **Faster Workflow:** Select from dropdown instead of typing or calling discovery tools first
-- **Fewer Errors:** Can't typo hostnames anymore - only valid options shown
-- **Better Discoverability:** Users immediately see what infrastructure they have configured
-- **Graceful Degradation:** Works without Ansible inventory (just no enum suggestions)
-- **Performance:** Enums generated once at startup, not on every tool call
+---
 
 ## [2.0.0] - 2025-10-30
 
@@ -173,106 +140,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No need to build locally - just `docker pull bjeans/homelab-mcp:latest`
   - Updated docker-compose.yml to use Docker Hub images by default
   - Comprehensive tagging strategy for version management
-- **Release Process Documentation:** Complete release workflow in CONTRIBUTING.md
-  - Step-by-step release creation guide
-  - Testing procedures for Docker builds
-  - Rollback process for failed releases
-  - Docker Hub access management
+- **Release Process Documentation:** Complete release workflow in CONTRIBUTING.md (now MAINTAINERS.md)
 - **MCP Tool Annotations:** Added comprehensive metadata annotations to all tools across 6 MCP servers
   - `title`: Human-readable tool titles for better UX
   - `readOnlyHint`: Indicates tools only read data (all tools marked as read-only)
   - `destructiveHint`: Indicates tools can modify/delete data (all tools marked as non-destructive)
-  - `idempotentHint`: Indicates repeated calls have same effect (varies by tool based on caching behavior)
-  - `openWorldHint`: Indicates tools return dynamic/real-time data (all tools interact with external systems)
-- Enhanced MCP Inspector visualization with tool metadata
-- Improved AI understanding of tool safety and behavior
-- Full MCP specification compliance for tool metadata
+  - `idempotentHint`: Indicates repeated calls have same effect
+  - `openWorldHint`: Indicates tools return dynamic/real-time data
 - **CLAUDE_CUSTOM.md:** New gitignored file for homelab-specific customizations
-- **CLAUDE_CUSTOM.example.md:** Detailed template for local Claude customizations
-- **Local Customizations Section:** Added to CLAUDE.md explaining the customization system
-
-### Changed
-- **docker-compose.yml:** Now uses Docker Hub images by default (with option to build from source)
-- **README.md:** Added Docker Hub badges and quick start section
-- **README.md:** Reorganized Docker deployment section with Docker Hub as primary option
-- Updated all 27 tools across Docker, Ping, Ollama, Pi-hole, Unifi, and UPS servers with annotations
-- Both unified mode (with prefixes) and standalone mode (without prefixes) tools now include annotations
-- **CLAUDE.md:** Now public-ready with generalized examples (removed Dell-Server, HL16 references)
-- **.gitignore:** Updated to exclude CLAUDE_CUSTOM.md instead of CLAUDE.md
-- **README.md:** Updated setup instructions for CLAUDE_CUSTOM.md
-- **SECURITY.md:** Added guidance for Claude customization files
-
-### Fixed
-- **MCP Tool Annotations Protocol Compliance:** Wrapped all annotation hints in `types.ToolAnnotations()` object per MCP specification
-  - Affects 33 tools across all 7 MCP servers (Ansible, Docker, Ollama, Pi-hole, Ping, Unifi, UPS)
-  - Annotation hints (readOnlyHint, destructiveHint, idempotentHint, openWorldHint) now properly encapsulated
-  - Fixed in both class-based implementations (unified mode) and module-level handlers (standalone mode)
-  - Ensures correct MCP protocol serialization and client interpretation
-
-### Infrastructure
-- GitHub Actions workflow: `.github/workflows/docker-publish.yml`
-- Automated CI/CD pipeline for Docker image publishing
-- Integration with existing security checks
-- Build summaries and failure notifications
-
-### Improved
-- Separation of public documentation from homelab-specific details
-- Claude can now access project documentation on web and GitHub
-- Better security by keeping infrastructure details in separate gitignored file
-
-### Benefits
-- **Easier deployment:** Pull pre-built images instead of building locally
-- **Faster setup:** No need for local build environment
-- **Multi-platform support:** Works on x86_64 and ARM (Raspberry Pi)
-- **Version control:** Semantic versioning allows pinning to specific versions
-- **Continuous delivery:** Every release automatically available on Docker Hub
-- Better client UI/UX with visual safety indicators
-- Enhanced tool discovery capabilities
-- Improved AI reasoning about tool usage patterns
-- Consistent metadata across all homelab infrastructure tools
-
-### Planned
-- Additional MCP servers (suggestions welcome!)
-- Advanced analytics and reporting features
-- Grafana dashboard integration
-- Home Assistant integration
-- Kubernetes deployment option
-- Enhanced monitoring and alerting
-
-## [1.0.0] - 2025-10-11
-
-### Added
-- Initial public release
-- MCP Registry Inspector for Claude Desktop introspection
-- Docker/Podman Container Manager with support for multiple hosts
-- Ollama AI Model Manager with LiteLLM proxy support
-- Pi-hole DNS Manager for monitoring DNS statistics
-- Unifi Network Monitor with caching for performance
-- Ansible Inventory Inspector for querying infrastructure
-- Comprehensive security documentation (SECURITY.md)
-- Automated pre-push security validation hook
-- Configuration templates (.env.example, ansible_hosts.example.yml)
-- Project instructions template for Claude Desktop
-- Cross-platform support (Windows, macOS, Linux)
-
-### Security
-- Added pre_publish_check.py for automated security scanning
-- Implemented git pre-push hook for security validation
-- Sanitized all example configuration files
-- Added comprehensive security guidelines in SECURITY.md
-- Environment-based configuration to prevent credential exposure
-
-## [2.0.0] - 2025-10-30
-
-### Added
 - **Containerized Deployment:** Full Docker support with Dockerfile, docker-compose.yml, and .dockerignore
-- **Unified MCP Server:** Single `homelab_unified_mcp.py` runs all servers in one process with namespaced tools (e.g., `docker_get_containers`, `ping_ping_host`)
+- **Unified MCP Server:** Single `homelab_unified_mcp.py` runs all servers in one process with namespaced tools
 - **Docker Entrypoint Script:** Automatic mode detection (unified vs. legacy) with intelligent server startup
 - **Enhanced Docker Configuration:** Support for both Ansible inventory and environment variable configuration
 - **Health Checks:** Docker HEALTHCHECK configured for production deployments
-- **Security Hardening:** Non-root user (mcpuser) in Docker containers with proper permissions
+- **Security Hardening:** Non-root user (mcpuser) in Docker containers
 - **System Dependencies:** Added `iputils-ping` to Docker image for cross-platform ping support
-- **Ping MCP Server:** New `ping_mcp_server.py` for network connectivity testing with cross-platform support
+- **Ping MCP Server:** New `ping_mcp_server.py` for network connectivity testing
 - **Docker Compose Support:** Complete docker-compose.yml with example configuration
 - **UPS Monitoring:** Integrated UPS/NUT monitoring (`ups_mcp_server.py`) into unified server
 - **Dual-Mode Architecture:** All servers support both standalone and unified mode operation
@@ -284,23 +167,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration Loading:** Centralized config management via `mcp_config_loader.py` and `ansible_config_manager.py`
 - **Logging:** All diagnostic output routed to stderr to preserve MCP protocol stdout
 - **Documentation:** Reorganized with Docker deployment guide, migration guide, and updated examples
+- **docker-compose.yml:** Now uses Docker Hub images by default (with option to build from source)
+- **README.md:** Added Docker Hub badges and quick start section
+- Updated all 27 tools across Docker, Ping, Ollama, Pi-hole, Unifi, and UPS servers with annotations
+- Both unified mode (with prefixes) and standalone mode (without prefixes) tools now include annotations
+- **CLAUDE.md:** Now public-ready with generalized examples
+- **.gitignore:** Updated to exclude CLAUDE_CUSTOM.md instead of CLAUDE.md
 
 ### Fixed
+- **MCP Tool Annotations Protocol Compliance:** Wrapped all annotation hints in `types.ToolAnnotations()` object
+  - Affects 33 tools across all 7 MCP servers (Ansible, Docker, Ollama, Pi-hole, Ping, Unifi, UPS)
+  - Ensures correct MCP protocol serialization and client interpretation
 - Docker MCP initialization in unified mode
 - Configuration loading in unified server
 - Inconsistent logging across MCP servers
 - Empty inventory handling in ping server
 
 ### Infrastructure
-- Tested with 7 MCP servers
-- Supports monitoring 24+ hosts
+- GitHub Actions workflow: `.github/workflows/docker-publish.yml`
+- Automated CI/CD pipeline for Docker image publishing
+- Integration with existing security checks
+- Tested with 7 MCP servers monitoring 24+ hosts
 - Compatible with Docker Engine 20.10+ and Docker Compose 2.0+
-- Verified on Windows, macOS, and Linux environments
-
-### Planned
-- Grafana dashboard integration
-- Home Assistant integration
-- Enhanced monitoring and alerting
 
 ---
 
@@ -311,3 +199,4 @@ When updating this changelog:
 - When releasing, move `[Unreleased]` items to a new version section
 - Use categories: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`
 - Link to issues/PRs where applicable
+- Archive versions older than 1 year to CHANGELOG_ARCHIVE.md

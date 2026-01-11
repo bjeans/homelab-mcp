@@ -34,6 +34,126 @@ This project provides MCP (Model Context Protocol) servers for managing homelab 
 - File is gitignored by default to prevent accidental commits
 - See `CLAUDE.md` section on "Local Customizations" for usage details
 
+### Automated Security Validation
+
+#### Pre-Publish Security Check
+
+The project includes automated security scanning via `helpers/pre_publish_check.py` to prevent accidental exposure of sensitive data.
+
+**Install the pre-push git hook (recommended):**
+```bash
+python helpers/install_git_hook.py
+```
+
+**What it does:**
+- Automatically runs before every `git push`
+- Blocks pushes containing potential secrets or sensitive data
+- Protects against accidentally committing API keys, passwords, or personal information
+
+**Manual security check:**
+```bash
+python helpers/pre_publish_check.py
+```
+
+**Bypass security check (use with extreme caution):**
+```bash
+git push --no-verify  # Only when absolutely necessary
+```
+
+#### Context-Aware Infrastructure Scanning
+
+The security scanner includes intelligent detection that uses your Ansible inventory to identify real infrastructure details in code.
+
+**How it works:**
+
+1. **Loads Your Ansible Inventory**
+   - Reads from `ANSIBLE_INVENTORY_PATH` in `.env`
+   - Falls back to `ansible_hosts.yml` if no path specified
+   - Extracts all IP addresses, hostnames, and domains from your inventory
+
+2. **Scans Public Files**
+   - Python files (`.py`)
+   - Example markdown files (`*.example.md`, `README.md`, etc.)
+   - Example YAML files (`*.example.yml`, `*.example.yaml`)
+   - Other documentation files
+
+3. **Context-Aware Detection**
+   - Knows YOUR specific infrastructure details
+   - Detects real IPs/hostnames even when used as "examples"
+   - Filters out legitimate example contexts (lines with "example", "replace", "placeholder", etc.)
+   - Uses word boundaries to avoid false positives
+
+**Benefits:**
+- ✅ No hardcoded secrets in the security tool itself
+- ✅ Catches AI mistakes (when assistants accidentally use your real infrastructure)
+- ✅ Context-aware (knows YOUR hostnames, not just generic patterns)
+- ✅ Smart filtering (ignores legitimate documentation examples)
+- ✅ Graceful degradation (skips check if Ansible inventory not found)
+
+**Example output:**
+```
+======================================================================
+Scanning for Real Infrastructure Details (Context-Aware)
+======================================================================
+
+Loaded 22 IP addresses, 24 hostnames, 3 domains from inventory
+✓ ansible_mcp_server.py: No real infrastructure details found
+✓ docker_mcp_podman.py: No real infrastructure details found
+✗ README.md: Found real infrastructure details!
+  → Real IP address: 192.0.2.100
+  → Real hostname: Server-01
+
+✗ ❌ Found references to real infrastructure in files that will be committed!
+✗ These files should only contain example/placeholder data.
+```
+
+**What gets scanned:**
+
+Extracted from Ansible inventory:
+- **IP Addresses**: From `ansible_host`, `ip`, `address` fields
+- **Hostnames**: All host entries in the inventory
+- **Domains**: Extracted from FQDNs (e.g., `server.home.local` → `home.local`)
+
+Files scanned:
+- All Python files (except `pre_publish_check.py` itself)
+- Example templates (`*.example.md`, `*.example.yml`)
+- Public documentation (`README.md`, `SECURITY.md`, `CONTRIBUTING.md`, etc.)
+
+Files NOT scanned (gitignored):
+- `.env`
+- `PROJECT_INSTRUCTIONS.md`
+- `CLAUDE_CUSTOM.md`
+- `ansible_hosts.yml`
+
+**Setup:**
+
+Set `ANSIBLE_INVENTORY_PATH` in your `.env`:
+```bash
+ANSIBLE_INVENTORY_PATH=/path/to/ansible_hosts.yml
+```
+
+Or place `ansible_hosts.yml` in project root (it's gitignored by default).
+
+**Smart filtering:**
+
+The scanner won't flag these contexts:
+- Lines containing: "example", "replace", "your-ip", "your-host"
+- Lines containing: "placeholder", "template", "e.g.", "i.e."
+- Common domains: "local", "com", "net", "org", "home"
+
+This prevents false positives in documentation that instructs users to "replace with your IP".
+
+**Troubleshooting:**
+
+- **"Ansible inventory not found - skipping context-aware infrastructure scan"**
+  - Solution: Set `ANSIBLE_INVENTORY_PATH` in `.env` or create `ansible_hosts.yml`
+
+- **"PyYAML not installed - skipping Ansible inventory check"**
+  - Solution: `pip install pyyaml`
+
+- **False Positives**
+  - If legitimate examples are flagged, ensure the line contains words like "example", "replace", "your-ip", or "placeholder"
+
 ### Network Security
 
 #### Docker/Podman APIs
@@ -55,9 +175,26 @@ iptables -A INPUT -p tcp --dport 2375 -s 192.168.1.0/24 -j ACCEPT
 iptables -A INPUT -p tcp --dport 2375 -j DROP
 ```
 
+**Docker API with TLS:**
+```bash
+# Generate certificates
+openssl genrsa -out ca-key.pem 4096
+openssl req -new -x509 -days 365 -key ca-key.pem -sha256 -out ca.pem
+
+# Configure Docker daemon
+{
+  "tls": true,
+  "tlscacert": "/etc/docker/ca.pem",
+  "tlscert": "/etc/docker/server-cert.pem",
+  "tlskey": "/etc/docker/server-key.pem",
+  "hosts": ["tcp://0.0.0.0:2376"]
+}
+```
+
 #### Pi-hole API Security
 1. **Generate unique API keys** for each Pi-hole instance
    - Pi-hole Settings → API → Generate new API key
+   - Command line: `pihole -a -p`
 2. **NEVER reuse API keys** between environments
 3. **Store keys in `.env` file only** - never hardcode in scripts
 4. **Use HTTPS** when accessing Pi-hole remotely
@@ -77,6 +214,13 @@ iptables -A INPUT -p tcp --dport 2375 -j DROP
 4. **Monitor for unusual API usage**
 5. **Keep models and software updated**
 
+#### Network Isolation
+**Recommended VLAN Structure:**
+- Management VLAN: MCP client, Ansible controller
+- Services VLAN: Docker hosts, Ollama, Pi-hole
+- IoT VLAN: Unifi devices (separate from services)
+- Guest VLAN: Isolated from management and services
+
 ### Access Control
 
 #### MCP Server Access
@@ -86,7 +230,7 @@ iptables -A INPUT -p tcp --dport 2375 -j DROP
 - They can **make network requests** to configured services
 
 **Security Implications:**
-- **Limit file write permissions** in MCP Registry Inspector
+- **Limit file write permissions** in MCP Registry Inspector (deprecated v2.3.0)
 - **Validate all file paths** to prevent directory traversal
 - **Sanitize command arguments** to prevent injection
 - **Use minimal network permissions**
@@ -94,8 +238,7 @@ iptables -A INPUT -p tcp --dport 2375 -j DROP
 #### Principle of Least Privilege
 1. **Docker API**: Consider using read-only API proxy
 2. **Ansible**: Use read-only inventory queries only
-3. **MCP Registry Inspector**: Restrict write access to MCP directory only
-4. **Network access**: Firewall rules to limit connections
+3. **Network access**: Firewall rules to limit connections
 
 ### Data Protection
 
@@ -113,6 +256,12 @@ iptables -A INPUT -p tcp --dport 2375 -j DROP
 - Use Ansible Vault for sensitive playbook variables
 - Use secrets management tools (HashiCorp Vault, etc.) in production
 - Encrypt backups containing configuration files
+
+**File Permissions (Linux/Mac):**
+```bash
+chmod 600 .env  # Read/write for owner only
+chown $USER:$USER .env
+```
 
 #### Logging Security
 Current implementation logs to `stderr`. Be aware that logs may contain:
@@ -157,7 +306,7 @@ cmd = ['python', 'script.py']
 ### Transport Security
 
 #### API Communication
-Current implementation uses **HTTP** (unencrypted) for all API calls:
+Current implementation uses **HTTP** (unencrypted) for most API calls:
 - Docker/Podman APIs
 - Ollama APIs
 - Pi-hole APIs
@@ -168,13 +317,6 @@ Current implementation uses **HTTP** (unencrypted) for all API calls:
 2. **Validate SSL certificates** (set `verify=True` in aiohttp)
 3. **Use certificate pinning** for critical services
 4. **Implement mTLS** for Docker API
-
-#### Network Isolation
-**Recommended VLAN Structure:**
-- Management VLAN: MCP client, Ansible controller
-- Services VLAN: Docker hosts, Ollama, Pi-hole
-- IoT VLAN: Unifi devices (separate from services)
-- Guest VLAN: Isolated from management and services
 
 ## 🚨 Reporting Security Vulnerabilities
 
@@ -202,6 +344,7 @@ Before deploying this project in your homelab:
 - [ ] Copy `PROJECT_INSTRUCTIONS.example.md` and customize
 - [ ] Verify `.gitignore` excludes sensitive files
 - [ ] Review and understand all security implications
+- [ ] Install pre-push git hook: `python helpers/install_git_hook.py`
 
 ### Network Security
 - [ ] Configure firewall rules for Docker/Podman APIs
@@ -231,57 +374,10 @@ Before deploying this project in your homelab:
 - [ ] Test disaster recovery procedures
 - [ ] Keep documentation updated
 
-## 🔐 Secure Configuration Examples
-
-### Example: Docker API with TLS
-```bash
-# Generate certificates
-openssl genrsa -out ca-key.pem 4096
-openssl req -new -x509 -days 365 -key ca-key.pem -sha256 -out ca.pem
-
-# Configure Docker daemon
-{
-  "tls": true,
-  "tlscacert": "/etc/docker/ca.pem",
-  "tlscert": "/etc/docker/server-cert.pem",
-  "tlskey": "/etc/docker/server-key.pem",
-  "hosts": ["tcp://0.0.0.0:2376"]
-}
-```
-
-### Example: Pi-hole API Key Generation
-```bash
-# SSH into Pi-hole
-pihole -a -p
-
-# Or via web interface:
-# Settings → API → Generate new API key
-```
-
-### Example: Secure .env File Permissions
-```bash
-# Linux/Mac
-chmod 600 .env
-chown $USER:$USER .env
-
-# Verify
-ls -la .env
-# Should show: -rw------- (read/write for owner only)
-```
-
-## 📚 Additional Resources
-
-- [Docker Security Best Practices](https://docs.docker.com/engine/security/)
-- [Pi-hole API Documentation](https://docs.pi-hole.net/api/)
-- [Unifi Security Best Practices](https://help.ui.com/hc/en-us/articles/204910084)
-- [Ansible Vault Documentation](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
-- [OWASP API Security Top 10](https://owasp.org/www-project-api-security/)
-
-
 ## 📅 Revision History
 
+- **2026-01**: Merged context-aware security scanning documentation
 - **2024-10**: Initial security policy created
-- Review and update this policy regularly as threats evolve
 
 ---
 
