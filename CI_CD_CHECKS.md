@@ -2,6 +2,8 @@
 
 Quick reference for automated checks configured for the Homelab MCP project.
 
+**For detailed tutorials:** See [GitHub Discussions](https://github.com/bjeans/homelab-mcp/discussions) for step-by-step guides and troubleshooting help.
+
 ## Overview
 
 Multiple layers of automated checks ensure code quality, security, and compatibility:

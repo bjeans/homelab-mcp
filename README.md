@@ -20,6 +20,8 @@
 
 ## 🚀 Quick Start
 
+⚠️ **SECURITY WARNING:** Read [SECURITY.md](SECURITY.md) before deploying. Never expose Docker/Podman APIs to the internet without TLS and authentication. Keep `.env` files secure and never commit them to version control.
+
 ### 1. Choose Your Deployment
 
 **Option A: Docker (Recommended for Production)**
