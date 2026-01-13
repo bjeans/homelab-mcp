@@ -26,6 +26,7 @@ import aiohttp
 from ansible_config_manager import load_group_hosts
 
 from fastmcp import FastMCP
+from mcp import types
 
 from mcp_config_loader import COMMON_ALLOWED_ENV_VARS, load_env_file
 from mcp_error_handler import MCPErrorClassifier, log_error_with_context
@@ -162,7 +163,15 @@ async def ollama_request(host_ip: str, endpoint: str, port: int = 11434, timeout
 
 # FastMCP Tools
 
-@mcp.tool()
+@mcp.tool(
+    title="List Ollama Instances",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def list_hosts() -> str:
     """Check status of all Ollama instances"""
     endpoints = _load_ollama_endpoints()
@@ -198,7 +207,15 @@ async def list_hosts() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="List Models on Host",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def list_models(host: str) -> str:
     """
     Get models on a specific Ollama host
@@ -232,7 +249,15 @@ async def list_models(host: str) -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Model Info",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_model_info(host: str, model_name: str) -> str:
     """
     Get detailed information about a specific model on a host
@@ -278,7 +303,15 @@ async def get_model_info(host: str, model_name: str) -> str:
     return f"Model '{model_name}' not found on {host}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Running Models",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_running_models() -> str:
     """Get currently running models across all Ollama hosts"""
     endpoints = _load_ollama_endpoints()
@@ -314,7 +347,15 @@ async def get_running_models() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 def reload_inventory() -> str:
     """Reload Ollama endpoints from Ansible inventory (useful after inventory changes)"""
     global _endpoints_cache
