@@ -93,7 +93,7 @@ This README covers installation and basic setup. The project instructions provid
 
 ## 🎯 Deployment Options
 
-**Version 2.3.0** offers flexible deployment with two modes and two methods:
+**Version 3.0.0** offers flexible deployment with two modes and two methods:
 
 ### Deployment Modes
 
@@ -205,18 +205,21 @@ python homelab_unified_mcp.py
 
 ---
 
-## ⚡ FastMCP Framework (New in v2.3.0)
+## ⚡ FastMCP Framework (v3.0.0)
 
-**Version 2.3.0 introduces FastMCP:** A modern MCP framework that simplifies server architecture while adding support for multiple transport mechanisms.
+**Version 3.0.0 uses FastMCP:** A modern MCP framework that simplifies server architecture while adding support for multiple transport mechanisms and tool annotations.
 
 ### What is FastMCP?
 
 FastMCP is a lightweight framework that:
 - ✅ Reduces server code by 38% (1,754 lines eliminated)
-- ✅ Simplifies the dual-mode pattern into a unified architecture
+- ✅ Uses simple decorator pattern (`@mcp.tool()`) for tool definitions
+- ✅ Includes comprehensive tool annotations for behavioral hints
 - ✅ Adds support for HTTP and SSE transports (in addition to stdio)
-- ✅ Maintains full backward compatibility with existing Claude Desktop configurations
+- ✅ Auto-generates schemas from Python type hints
 - ✅ Improves code maintainability and makes adding new servers easier
+
+**All 39 tools** now include MCP annotations (`readOnlyHint`, `idempotentHint`, etc.) to help Claude make informed decisions about tool usage.
 
 ### Transport Options
 

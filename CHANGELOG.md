@@ -48,9 +48,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP Tool Annotations:** Restored comprehensive behavioral hints to all 39 tools
+  - `readOnlyHint=True` - All tools (monitoring operations only)
+  - `destructiveHint=False` - All tools (non-mutating)
+  - `idempotentHint=True` - Inventory/config queries (stable data)
+  - `idempotentHint=False` - Runtime status queries (time-varying data)
+  - `openWorldHint=True` - All tools (external system interaction)
+  - Helps MCP clients make informed decisions about tool usage and retry logic
+
 - **Comprehensive Documentation:**
   - **[MIGRATION_V3.md](MIGRATION_V3.md)** - Complete v2.x to v3.0 upgrade guide
   - Updated **CLAUDE.md** with FastMCP decorator patterns
+  - Added tool annotations documentation and best practices
   - Removed outdated dual-mode class-based patterns
   - Added FastMCP composition examples
   - Import order requirements documented

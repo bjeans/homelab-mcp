@@ -205,6 +205,91 @@ if __name__ == "__main__":
 - ✅ Both sync and async functions supported
 - ✅ No manual schema definitions needed
 
+#### 2a. Tool Annotations (MCP Behavioral Hints)
+
+All tools should include `ToolAnnotations` to provide behavioral hints to MCP clients. These hints help Claude and other MCP clients make informed decisions about tool usage.
+
+```python
+from mcp import types
+
+@mcp.tool(
+    title="Get UPS Status",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,           # Tool doesn't modify state
+        destructiveHint=False,        # Tool won't delete/destroy data
+        idempotentHint=False,         # Results may vary over time (runtime status)
+        openWorldHint=True,           # Interacts with external systems
+    )
+)
+async def get_status() -> str:
+    """Get status of all UPS devices across all NUT servers"""
+    # Implementation
+    ...
+```
+
+**Annotation Semantics:**
+
+| Hint | Purpose | When to Use |
+|------|---------|-------------|
+| `readOnlyHint` | Tool only reads data, never modifies | ✅ All monitoring operations<br>❌ Any mutating operations |
+| `destructiveHint` | Tool may delete/destroy data | ❌ All homelab-mcp tools (monitoring only)<br>✅ Would be True for delete/destroy operations |
+| `idempotentHint` | Same inputs → same outputs | ✅ Inventory queries (stable data)<br>❌ Runtime status (time-varying data) |
+| `openWorldHint` | Interacts with external systems | ✅ All tools (query external services)<br>❌ Pure computation tools |
+
+**Examples by Tool Type:**
+
+```python
+# Inventory/Config Query (idempotent - stable data)
+@mcp.tool(
+    title="List All Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,      # ✅ Inventory data doesn't change often
+        openWorldHint=True,
+    )
+)
+def list_all_hosts() -> str:
+    """Get list of hosts from Ansible inventory"""
+    ...
+
+# Runtime Status Query (non-idempotent - time-varying)
+@mcp.tool(
+    title="Get Container Stats",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,     # ✅ CPU/memory stats change constantly
+        openWorldHint=True,
+    )
+)
+async def get_stats(hostname: str) -> str:
+    """Get real-time CPU/memory stats for containers"""
+    ...
+
+# Configuration Reload (non-idempotent - invalidates cache)
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,     # ✅ Side effect: clears cache
+        openWorldHint=True,
+    )
+)
+def reload_inventory() -> str:
+    """Reload inventory from disk"""
+    ...
+```
+
+**Why Annotations Matter:**
+- 🎯 **Tool Selection** - Claude knows which tools are safe to use
+- 🔄 **Retry Logic** - Idempotent tools can be safely retried on failure
+- 🛡️ **Safety** - Destructive operations require extra confirmation
+- 🌍 **Context** - Open world hints indicate external dependencies
+
+**All 39 tools** across 7 servers in homelab-mcp include proper annotations.
+
 #### 3. Unified Server Composition
 
 The unified server uses **FastMCP's native composition** - no manual wrapper functions needed!

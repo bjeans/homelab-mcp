@@ -9,6 +9,7 @@ Version 3.0 represents a major architectural improvement to Homelab MCP, migrati
 **Benefits of v3.0:**
 - **38% code reduction** (1,754 lines eliminated) - easier to maintain
 - **Cleaner architecture** - FastMCP's decorator pattern vs manual class boilerplate
+- **Tool annotations** - All 39 tools include behavioral hints (`readOnlyHint`, `idempotentHint`, etc.) to help Claude make informed decisions
 - **Multiple transports** - stdio (default), HTTP, and SSE support
 - **Better type safety** - Automatic schema generation from Python type hints
 - **Faster development** - Add new tools with simple `@mcp.tool()` decorators
