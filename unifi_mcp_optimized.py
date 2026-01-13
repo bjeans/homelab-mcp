@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastmcp import FastMCP
+from mcp import types
 
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 from mcp_error_handler import MCPErrorClassifier, log_error_with_context
@@ -425,7 +426,15 @@ def format_network_summary(data: dict) -> str:
 
 # FastMCP Tools
 
-@mcp.tool()
+@mcp.tool(
+    title="List Network Devices",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def list_devices() -> str:
     """Get all Unifi network devices (switches, APs, gateways) with status and basic info. This is cached for better performance."""
     try:
@@ -448,7 +457,15 @@ async def list_devices() -> str:
             return error_msg
 
 
-@mcp.tool()
+@mcp.tool(
+    title="List Network Clients",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def list_clients() -> str:
     """Get all active network clients and their connections. This is cached for better performance."""
     try:
@@ -470,7 +487,15 @@ async def list_clients() -> str:
             return error_msg
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Network Summary",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_network_stats() -> str:
     """Get network overview: VLANs, device count, client count. Fast summary view."""
     try:
@@ -492,7 +517,15 @@ async def get_network_stats() -> str:
             return error_msg
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Device Details",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_device_details(device_name: str) -> str:
     """
     Get detailed information about a specific network device
@@ -576,7 +609,15 @@ async def get_device_details(device_name: str) -> str:
             return error_msg
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Client Details",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_client_details(client_identifier: str) -> str:
     """
     Get detailed information about a specific network client

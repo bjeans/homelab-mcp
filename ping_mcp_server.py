@@ -27,6 +27,7 @@ from typing import Dict, Optional
 from ansible_config_manager import AnsibleConfigManager
 
 from fastmcp import FastMCP
+from mcp import types
 
 from mcp_config_loader import load_env_file, load_indexed_env_vars, COMMON_ALLOWED_ENV_VARS
 
@@ -340,7 +341,15 @@ def format_inventory_error(item_type: str, requested_name: str, inventory: dict,
 
 # FastMCP Tools
 
-@mcp.tool()
+@mcp.tool(
+    title="List Ansible Groups",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 def list_groups() -> str:
     """List all available Ansible groups for pinging (call this first to discover valid group names)"""
     inventory = _load_inventory()
@@ -356,7 +365,15 @@ def list_groups() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="List Inventory Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 def list_hosts() -> str:
     """List all hosts in the Ansible inventory with their resolved IPs (call this first to discover valid hostnames)"""
     inventory = _load_inventory()
@@ -382,7 +399,15 @@ def list_hosts() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 def reload_inventory() -> str:
     """Reload Ansible inventory from disk (useful after inventory changes)"""
     global _inventory_cache
@@ -396,7 +421,15 @@ def reload_inventory() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Ping Host",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def ping_host_by_name(hostname: str, count: int = 4, timeout: int = 5) -> str:
     """
     Ping a specific host by hostname from Ansible inventory
@@ -427,7 +460,15 @@ async def ping_host_by_name(hostname: str, count: int = 4, timeout: int = 5) -> 
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Ping Group",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def ping_group(group: str, count: int = 2, timeout: int = 3) -> str:
     """
     Ping all hosts in an Ansible group
@@ -474,7 +515,15 @@ async def ping_group(group: str, count: int = 2, timeout: int = 3) -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Ping All Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def ping_all(count: int = 2, timeout: int = 3) -> str:
     """
     Ping all hosts in the infrastructure

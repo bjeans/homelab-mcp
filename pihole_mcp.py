@@ -27,6 +27,7 @@ import aiohttp
 from ansible_config_manager import load_group_hosts
 
 from fastmcp import FastMCP
+from mcp import types
 
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 from mcp_error_handler import MCPErrorClassifier, log_error_with_context
@@ -243,7 +244,15 @@ async def pihole_api_request(host: str, port: int, endpoint: str, sid: str, time
 
 # FastMCP Tools
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Pi-hole Summary",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_summary() -> str:
     """Get DNS statistics from all Pi-hole instances"""
     pihole_hosts = _load_pihole_hosts()
@@ -289,7 +298,15 @@ async def get_summary() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="List Pi-hole Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def list_hosts() -> str:
     """Check which Pi-hole instances are online"""
     pihole_hosts = _load_pihole_hosts()
@@ -313,7 +330,15 @@ async def list_hosts() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Top Items",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_top_items(display_name: str = "", limit: int = 10) -> str:
     """
     Get top blocked domains and top clients
@@ -367,7 +392,15 @@ async def get_top_items(display_name: str = "", limit: int = 10) -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Query Types",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_query_types(display_name: str = "") -> str:
     """
     Get DNS query type statistics
@@ -412,7 +445,15 @@ async def get_query_types(display_name: str = "") -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Forward Destinations",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_forward_destinations(display_name: str = "") -> str:
     """
     Get upstream DNS server statistics
@@ -459,7 +500,15 @@ async def get_forward_destinations(display_name: str = "") -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 def reload_inventory() -> str:
     """Reload Pi-hole hosts from Ansible inventory (useful after inventory changes)"""
     global _pihole_hosts_cache

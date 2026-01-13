@@ -28,6 +28,7 @@ import aiohttp
 from ansible_config_manager import AnsibleConfigManager
 
 from fastmcp import FastMCP
+from mcp import types
 
 from mcp_config_loader import load_env_file, load_indexed_env_vars, COMMON_ALLOWED_ENV_VARS
 from mcp_error_handler import log_error_with_context
@@ -273,7 +274,15 @@ def format_labels_output(labels: Dict, indent: str = "  ") -> str:
 
 # FastMCP Tools
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Containers on Host",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def list_containers(hostname: str) -> str:
     """
     Get containers on a specific host (works with both Docker and Podman)
@@ -338,7 +347,15 @@ async def list_containers(hostname: str) -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get All Containers",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def list_all_hosts() -> str:
     """Get all containers across all hosts"""
     container_hosts = _load_container_hosts()
@@ -372,7 +389,15 @@ async def list_all_hosts() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Container Stats",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_stats(hostname: str) -> str:
     """
     Get CPU and memory stats for containers on a host
@@ -444,7 +469,15 @@ async def get_stats(hostname: str) -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Check Container Status",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_container_details(hostname: str, container: str) -> str:
     """
     Check if a specific container is running on a host
@@ -485,7 +518,15 @@ async def get_container_details(hostname: str, container: str) -> str:
     return f"✗ Container '{container}' is NOT running on {hostname}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Container Logs",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_container_logs(hostname: str, container: str, tail: int = 100) -> str:
     """
     Get recent logs from a specific container
@@ -549,7 +590,15 @@ async def get_container_logs(hostname: str, container: str, tail: int = 100) -> 
         return f"Error retrieving logs: {str(e)}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 def reload_inventory() -> str:
     """Reload container hosts from Ansible inventory (useful after inventory changes)"""
     global _container_hosts_cache

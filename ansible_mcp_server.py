@@ -21,6 +21,7 @@ from typing import Any, Optional
 import yaml
 
 from fastmcp import FastMCP
+from mcp import types
 
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 
@@ -139,7 +140,15 @@ def _find_group(data: dict, target: str, path: str = "") -> Optional[dict]:
 
 # FastMCP Tools
 
-@mcp.tool()
+@mcp.tool(
+    title="List All Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 def list_all_hosts() -> str:
     """Get a list of all hosts in the Ansible inventory with their basic information"""
     inventory = _load_inventory()
@@ -149,7 +158,15 @@ def list_all_hosts() -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="List Groups",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 def list_groups() -> str:
     """Get a list of all groups defined in the Ansible inventory"""
     inventory = _load_inventory()
@@ -159,7 +176,15 @@ def list_groups() -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Host Details",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 def get_host_details(hostname: str) -> str:
     """
     Get detailed information about a specific host including all variables and group memberships
@@ -179,7 +204,15 @@ def get_host_details(hostname: str) -> str:
 
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Group Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 def get_group_hosts(group_name: str) -> str:
     """
     Get all hosts that belong to a specific group
@@ -203,7 +236,15 @@ def get_group_hosts(group_name: str) -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Query Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 def query_hosts(pattern: str = "", variable: str = "", value: str = "") -> str:
     """
     Search for hosts by name pattern or by variable values
@@ -246,7 +287,15 @@ def query_hosts(pattern: str = "", variable: str = "", value: str = "") -> str:
 
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 def reload_inventory() -> str:
     """Reload the inventory file from disk (useful if it has been updated)"""
     global _inventory_cache

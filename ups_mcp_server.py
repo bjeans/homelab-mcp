@@ -26,6 +26,7 @@ from typing import Dict, List, Optional
 from ansible_config_manager import AnsibleConfigManager
 
 from fastmcp import FastMCP
+from mcp import types
 
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 from mcp_error_handler import log_error_with_context
@@ -366,7 +367,15 @@ def format_ups_details(ups_name: str, ups_data: Optional[Dict], host_name: str) 
 
 # FastMCP Tools
 
-@mcp.tool()
+@mcp.tool(
+    title="List UPS Devices",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 def list_hosts() -> str:
     """List all UPS devices configured in the inventory"""
     inventory = _load_inventory()
@@ -393,7 +402,15 @@ def list_hosts() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 def reload_inventory() -> str:
     """Reload Ansible inventory from disk (useful after inventory changes)"""
     global _inventory_cache
@@ -410,7 +427,15 @@ def reload_inventory() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get UPS Status",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_status() -> str:
     """Get status of all UPS devices across all NUT servers"""
     inventory = _load_inventory()
@@ -458,7 +483,15 @@ async def get_status() -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get UPS Details",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_details(host: str, ups_name: str = "") -> str:
     """
     Get detailed information for a specific UPS device
@@ -560,7 +593,15 @@ async def get_details(host: str, ups_name: str = "") -> str:
     return output
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Battery Runtime",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def get_battery_info() -> str:
     """Get battery runtime estimates for all UPS devices"""
     inventory = _load_inventory()
