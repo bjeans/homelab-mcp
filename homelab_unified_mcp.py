@@ -14,6 +14,11 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+# CRITICAL: Import Ansible BEFORE FastMCP to avoid import hook conflicts
+# FastMCP adds a second FileFinder import hook that breaks Ansible's collection loader
+# Ansible's loader expects exactly 1 FileFinder hook, so we must import it first
+from ansible_config_manager import AnsibleConfigManager
+
 from fastmcp import FastMCP
 
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
@@ -63,13 +68,13 @@ import unifi_mcp_optimized
 @mcp.tool()
 def ansible_list_all_hosts() -> str:
     """List all hosts from Ansible inventory with their variables and group memberships"""
-    return ansible_mcp_server.list_all_hosts()
+    return ansible_mcp_server.list_all_hosts.fn()
 
 
 @mcp.tool()
 def ansible_list_groups() -> str:
     """List all groups from Ansible inventory"""
-    return ansible_mcp_server.list_groups()
+    return ansible_mcp_server.list_groups.fn()
 
 
 @mcp.tool()
@@ -80,7 +85,7 @@ def ansible_get_host_details(hostname: str) -> str:
     Args:
         hostname: The hostname to query from Ansible inventory
     """
-    return ansible_mcp_server.get_host_details(hostname)
+    return ansible_mcp_server.get_host_details.fn(hostname)
 
 
 @mcp.tool()
@@ -91,24 +96,26 @@ def ansible_get_group_hosts(group: str) -> str:
     Args:
         group: The group name to query
     """
-    return ansible_mcp_server.get_group_hosts(group)
+    return ansible_mcp_server.get_group_hosts.fn(group)
 
 
 @mcp.tool()
-async def ansible_query_hosts(query: str) -> str:
+def ansible_query_hosts(pattern: str = "", variable: str = "", value: str = "") -> str:
     """
-    Query hosts using Ansible-style patterns (supports wildcards, groups, etc.)
+    Query hosts using Ansible-style patterns or variable matching
 
     Args:
-        query: Ansible pattern (e.g., 'webservers', 'db*', 'all', '!exclude')
+        pattern: Pattern to match against hostnames (supports wildcards)
+        variable: Variable name to search for
+        value: Variable value to match (used with variable parameter)
     """
-    return await ansible_mcp_server.query_hosts(query)
+    return ansible_mcp_server.query_hosts.fn(pattern, variable, value)
 
 
 @mcp.tool()
 def ansible_reload_inventory() -> str:
     """Reload Ansible inventory from disk (useful after inventory changes)"""
-    return ansible_mcp_server.reload_inventory()
+    return ansible_mcp_server.reload_inventory.fn()
 
 
 # Docker Tools (prefix: docker_)
@@ -116,7 +123,7 @@ def ansible_reload_inventory() -> str:
 @mcp.tool()
 def docker_list_all_hosts() -> str:
     """List all Docker/Podman hosts from Ansible inventory"""
-    return docker_mcp_podman.list_all_hosts()
+    return docker_mcp_podman.list_all_hosts.fn()
 
 
 @mcp.tool()
@@ -127,7 +134,7 @@ async def docker_list_containers(host: str = None) -> str:
     Args:
         host: Optional specific host to query (default: all hosts)
     """
-    return await docker_mcp_podman.list_containers(host)
+    return await docker_mcp_podman.list_containers.fn(host)
 
 
 @mcp.tool()
@@ -139,7 +146,8 @@ async def docker_get_container_details(container_id: str, host: str = None) -> s
         container_id: Container ID or name
         host: Optional specific host (default: search all hosts)
     """
-    return await docker_mcp_podman.get_container_details(container_id, host)
+    # Note: sub-server expects (hostname, container) order
+    return await docker_mcp_podman.get_container_details.fn(host, container_id)
 
 
 @mcp.tool()
@@ -152,7 +160,8 @@ async def docker_get_container_logs(container_id: str, host: str = None, lines: 
         host: Optional specific host
         lines: Number of log lines to retrieve (default: 100)
     """
-    return await docker_mcp_podman.get_container_logs(container_id, host, lines)
+    # Note: sub-server expects (hostname, container, tail) order
+    return await docker_mcp_podman.get_container_logs.fn(host, container_id, lines)
 
 
 @mcp.tool()
@@ -163,13 +172,13 @@ async def docker_get_stats(host: str = None) -> str:
     Args:
         host: Optional specific host (default: all hosts)
     """
-    return await docker_mcp_podman.get_stats(host)
+    return await docker_mcp_podman.get_stats.fn(host)
 
 
 @mcp.tool()
 def docker_reload_inventory() -> str:
     """Reload Docker/Podman inventory from disk"""
-    return docker_mcp_podman.reload_inventory()
+    return docker_mcp_podman.reload_inventory.fn()
 
 
 # Ping Tools (prefix: ping_)
@@ -177,19 +186,19 @@ def docker_reload_inventory() -> str:
 @mcp.tool()
 def ping_list_groups() -> str:
     """List all available Ansible groups for pinging"""
-    return ping_mcp_server.list_groups()
+    return ping_mcp_server.list_groups.fn()
 
 
 @mcp.tool()
 def ping_list_hosts() -> str:
     """List all hosts in the Ansible inventory with their resolved IPs"""
-    return ping_mcp_server.list_hosts()
+    return ping_mcp_server.list_hosts.fn()
 
 
 @mcp.tool()
 def ping_reload_inventory() -> str:
     """Reload Ansible inventory from disk"""
-    return ping_mcp_server.reload_inventory()
+    return ping_mcp_server.reload_inventory.fn()
 
 
 @mcp.tool()
@@ -202,7 +211,7 @@ async def ping_host_by_name(hostname: str, count: int = 4, timeout: int = 5) -> 
         count: Number of ping packets to send (default: 4)
         timeout: Timeout in seconds per ping (default: 5)
     """
-    return await ping_mcp_server.ping_host_by_name(hostname, count, timeout)
+    return await ping_mcp_server.ping_host_by_name.fn(hostname, count, timeout)
 
 
 @mcp.tool()
@@ -215,7 +224,7 @@ async def ping_group(group: str, count: int = 2, timeout: int = 3) -> str:
         count: Number of ping packets to send (default: 2)
         timeout: Timeout in seconds per ping (default: 3)
     """
-    return await ping_mcp_server.ping_group(group, count, timeout)
+    return await ping_mcp_server.ping_group.fn(group, count, timeout)
 
 
 @mcp.tool()
@@ -227,7 +236,7 @@ async def ping_all(count: int = 2, timeout: int = 3) -> str:
         count: Number of ping packets to send (default: 2)
         timeout: Timeout in seconds per ping (default: 3)
     """
-    return await ping_mcp_server.ping_all(count, timeout)
+    return await ping_mcp_server.ping_all.fn(count, timeout)
 
 
 # Ollama Tools (prefix: ollama_)
@@ -235,7 +244,7 @@ async def ping_all(count: int = 2, timeout: int = 3) -> str:
 @mcp.tool()
 def ollama_list_hosts() -> str:
     """List all Ollama hosts from Ansible inventory"""
-    return ollama_mcp.list_hosts()
+    return ollama_mcp.list_hosts.fn()
 
 
 @mcp.tool()
@@ -246,36 +255,32 @@ async def ollama_list_models(host: str = None) -> str:
     Args:
         host: Optional specific host to query (default: all hosts)
     """
-    return await ollama_mcp.list_models(host)
+    return await ollama_mcp.list_models.fn(host)
 
 
 @mcp.tool()
-async def ollama_get_model_info(model_name: str, host: str = None) -> str:
+async def ollama_get_model_info(model_name: str, host: str) -> str:
     """
     Get detailed information about a specific model
 
     Args:
         model_name: Name of the model to query
-        host: Optional specific host
+        host: Specific Ollama host to query
     """
-    return await ollama_mcp.get_model_info(model_name, host)
+    # Note: sub-server expects (host, model_name) order
+    return await ollama_mcp.get_model_info.fn(host, model_name)
 
 
 @mcp.tool()
-async def ollama_get_running_models(host: str = None) -> str:
-    """
-    Get currently running models
-
-    Args:
-        host: Optional specific host (default: all hosts)
-    """
-    return await ollama_mcp.get_running_models(host)
+async def ollama_get_running_models() -> str:
+    """Get currently running models across all Ollama hosts"""
+    return await ollama_mcp.get_running_models.fn()
 
 
 @mcp.tool()
 def ollama_reload_inventory() -> str:
     """Reload Ollama inventory from disk"""
-    return ollama_mcp.reload_inventory()
+    return ollama_mcp.reload_inventory.fn()
 
 
 # Pi-hole Tools (prefix: pihole_)
@@ -283,58 +288,53 @@ def ollama_reload_inventory() -> str:
 @mcp.tool()
 def pihole_list_hosts() -> str:
     """List all Pi-hole hosts from Ansible inventory"""
-    return pihole_mcp.list_hosts()
+    return pihole_mcp.list_hosts.fn()
 
 
 @mcp.tool()
-async def pihole_get_summary(host: str = None) -> str:
-    """
-    Get Pi-hole summary statistics
-
-    Args:
-        host: Optional specific host (default: all hosts)
-    """
-    return await pihole_mcp.get_summary(host)
+async def pihole_get_summary() -> str:
+    """Get Pi-hole summary statistics from all configured Pi-hole instances"""
+    return await pihole_mcp.get_summary.fn()
 
 
 @mcp.tool()
-async def pihole_get_top_items(host: str = None, count: int = 10) -> str:
+async def pihole_get_top_items(display_name: str = "", limit: int = 10) -> str:
     """
-    Get top blocked domains and top queries
+    Get top blocked domains and top queries from Pi-hole
 
     Args:
-        host: Optional specific host
-        count: Number of items to return (default: 10)
+        display_name: Optional specific Pi-hole instance (default: all instances)
+        limit: Number of items to return (default: 10)
     """
-    return await pihole_mcp.get_top_items(host, count)
+    return await pihole_mcp.get_top_items.fn(display_name, limit)
 
 
 @mcp.tool()
-async def pihole_get_query_types(host: str = None) -> str:
+async def pihole_get_query_types(display_name: str = "") -> str:
     """
-    Get breakdown of query types
+    Get breakdown of query types from Pi-hole
 
     Args:
-        host: Optional specific host
+        display_name: Optional specific Pi-hole instance (default: all instances)
     """
-    return await pihole_mcp.get_query_types(host)
+    return await pihole_mcp.get_query_types.fn(display_name)
 
 
 @mcp.tool()
-async def pihole_get_forward_destinations(host: str = None) -> str:
+async def pihole_get_forward_destinations(display_name: str = "") -> str:
     """
-    Get forward destination statistics
+    Get forward destination statistics from Pi-hole
 
     Args:
-        host: Optional specific host
+        display_name: Optional specific Pi-hole instance (default: all instances)
     """
-    return await pihole_mcp.get_forward_destinations(host)
+    return await pihole_mcp.get_forward_destinations.fn(display_name)
 
 
 @mcp.tool()
 def pihole_reload_inventory() -> str:
     """Reload Pi-hole inventory from disk"""
-    return pihole_mcp.reload_inventory()
+    return pihole_mcp.reload_inventory.fn()
 
 
 # Unifi Tools (prefix: unifi_)
@@ -342,7 +342,7 @@ def pihole_reload_inventory() -> str:
 @mcp.tool()
 async def unifi_list_devices() -> str:
     """List all Unifi network devices"""
-    return await unifi_mcp_optimized.list_devices()
+    return await unifi_mcp_optimized.list_devices.fn()
 
 
 @mcp.tool()
@@ -353,13 +353,13 @@ async def unifi_get_device_details(device_id: str) -> str:
     Args:
         device_id: Device ID or MAC address
     """
-    return await unifi_mcp_optimized.get_device_details(device_id)
+    return await unifi_mcp_optimized.get_device_details.fn(device_id)
 
 
 @mcp.tool()
 async def unifi_list_clients() -> str:
     """List all connected clients"""
-    return await unifi_mcp_optimized.list_clients()
+    return await unifi_mcp_optimized.list_clients.fn()
 
 
 @mcp.tool()
@@ -370,13 +370,13 @@ async def unifi_get_client_details(client_id: str) -> str:
     Args:
         client_id: Client ID or MAC address
     """
-    return await unifi_mcp_optimized.get_client_details(client_id)
+    return await unifi_mcp_optimized.get_client_details.fn(client_id)
 
 
 @mcp.tool()
 async def unifi_get_network_stats() -> str:
     """Get overall network statistics"""
-    return await unifi_mcp_optimized.get_network_stats()
+    return await unifi_mcp_optimized.get_network_stats.fn()
 
 
 # UPS Tools (prefix: ups_)
@@ -384,46 +384,37 @@ async def unifi_get_network_stats() -> str:
 @mcp.tool()
 def ups_list_hosts() -> str:
     """List all UPS/NUT hosts from Ansible inventory"""
-    return ups_mcp_server.list_hosts()
+    return ups_mcp_server.list_hosts.fn()
 
 
 @mcp.tool()
-async def ups_get_status(host: str = None) -> str:
-    """
-    Get UPS status from all NUT servers
-
-    Args:
-        host: Optional specific host (default: all hosts)
-    """
-    return await ups_mcp_server.get_status(host)
+async def ups_get_status() -> str:
+    """Get UPS status from all configured NUT servers"""
+    return await ups_mcp_server.get_status.fn()
 
 
 @mcp.tool()
-async def ups_get_details(host: str) -> str:
+async def ups_get_details(host: str, ups_name: str = "") -> str:
     """
     Get detailed UPS information from specific NUT server
 
     Args:
         host: Hostname of the NUT server to query
+        ups_name: Optional specific UPS name (default: first UPS on host)
     """
-    return await ups_mcp_server.get_details(host)
+    return await ups_mcp_server.get_details.fn(host, ups_name)
 
 
 @mcp.tool()
-async def ups_get_battery_info(host: str = None) -> str:
-    """
-    Get battery information from UPS devices
-
-    Args:
-        host: Optional specific host
-    """
-    return await ups_mcp_server.get_battery_info(host)
+async def ups_get_battery_info() -> str:
+    """Get battery information from all configured UPS devices"""
+    return await ups_mcp_server.get_battery_info.fn()
 
 
 @mcp.tool()
 def ups_reload_inventory() -> str:
     """Reload UPS/NUT inventory from disk"""
-    return ups_mcp_server.reload_inventory()
+    return ups_mcp_server.reload_inventory.fn()
 
 
 # Unified Catalog Tool

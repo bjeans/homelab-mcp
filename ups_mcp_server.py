@@ -21,9 +21,12 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# CRITICAL: Import Ansible BEFORE FastMCP to avoid import hook conflicts
+# FastMCP adds a second FileFinder import hook that breaks Ansible's collection loader
+from ansible_config_manager import AnsibleConfigManager
+
 from fastmcp import FastMCP
 
-from ansible_config_manager import AnsibleConfigManager
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 from mcp_error_handler import log_error_with_context
 
