@@ -22,10 +22,6 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional
 
-# CRITICAL: Import Ansible BEFORE FastMCP to avoid import hook conflicts
-# FastMCP adds a second FileFinder import hook that breaks Ansible's collection loader
-from ansible_config_manager import AnsibleConfigManager
-
 from fastmcp import FastMCP
 from mcp import types
 
@@ -133,6 +129,9 @@ def _load_inventory():
             return _inventory_cache
         logger.error("No ping targets configured in Ansible inventory or environment variables")
         return {"hosts": {}, "groups": {}}
+
+    # Lazy import - only load Ansible when needed
+    from ansible_config_manager import AnsibleConfigManager
 
     # Use centralized config manager
     manager = AnsibleConfigManager(

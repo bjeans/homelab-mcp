@@ -4,7 +4,7 @@
 
 **Repository:** <https://github.com/bjeans/homelab-mcp>
 **Docker Hub:** <https://hub.docker.com/r/bjeans/homelab-mcp>
-**Version:** 3.0.0 (Released: 2026-01-13)
+**Version:** 3.0.0 (Released: 2026-01-14)
 **License:** MIT
 **Purpose:** Open-source MCP servers for homelab infrastructure management through Claude Desktop
 
@@ -103,10 +103,6 @@ import os
 import sys
 from pathlib import Path
 
-# CRITICAL: Import Ansible BEFORE FastMCP to avoid import hook conflicts
-# FastMCP adds a second FileFinder import hook that breaks Ansible's collection loader
-from ansible_config_manager import AnsibleConfigManager
-
 from fastmcp import FastMCP
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 
@@ -131,6 +127,9 @@ logger.info(f"Ansible inventory: {ANSIBLE_INVENTORY_PATH}")
 # Service-specific helper functions
 def _load_ups_hosts():
     """Load UPS hosts from Ansible inventory"""
+    # Lazy import - only load Ansible when needed (avoids FastMCP import hook conflict)
+    from ansible_config_manager import AnsibleConfigManager
+
     # Implementation here
     ...
 ```
@@ -305,8 +304,6 @@ import logging
 import os
 from pathlib import Path
 
-# CRITICAL: Import Ansible BEFORE FastMCP
-from ansible_config_manager import AnsibleConfigManager
 from fastmcp import FastMCP
 from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 
@@ -324,6 +321,7 @@ os.environ["MCP_UNIFIED_MODE"] = "1"
 def compose_servers():
     """Compose all sub-servers into unified server"""
     # Import sub-servers (each has its own mcp instance with decorated tools)
+    # Note: Sub-servers use lazy imports for Ansible, so order doesn't matter
     import ansible_mcp_server
     import docker_mcp_podman
     import ups_mcp_server
@@ -383,31 +381,39 @@ if __name__ == "__main__":
 - Standard SDK: ~100 lines per tool (class + schema + handler)
 - FastMCP: ~10-20 lines per tool (decorator + implementation)
 
-### Import Order: Critical Requirement
+### Lazy Import Pattern (v3.0+)
 
-**⚠️ CRITICAL:** Always import `ansible_config_manager` BEFORE `fastmcp`:
+All servers use **lazy imports** for Ansible to avoid import hook conflicts with FastMCP:
 
 ```python
-# CORRECT ✅
-from ansible_config_manager import AnsibleConfigManager
-from fastmcp import FastMCP
+from fastmcp import FastMCP  # FastMCP imported at module level
 
-# INCORRECT ❌
-from fastmcp import FastMCP
-from ansible_config_manager import AnsibleConfigManager  # Will fail!
+def _load_config():
+    # Ansible imported lazily when function is first called
+    from ansible_config_manager import AnsibleConfigManager
+    manager = AnsibleConfigManager(...)
 ```
 
-**Why:** FastMCP adds a second `FileFinder` import hook that breaks Ansible's collection loader. Ansible expects exactly one hook and validates this during import.
+**Why This Works:**
+- At module import time: Only FastMCP is imported
+- At runtime (first tool call): Ansible is imported inside the function
+- No import hook conflict because they never execute at the same time
+- Caching ensures Ansible is only imported once per process
 
-**Where to apply:**
-- All server files that use both FastMCP and Ansible
-- `homelab_unified_mcp.py`
-- `ansible_mcp_server.py`
-- `docker_mcp_podman.py`
-- `ups_mcp_server.py`
-- All other `*_mcp*.py` files
+**Benefits:**
+- ✅ Import order is flexible - no more CRITICAL warnings
+- ✅ `uvx fastmcp inspect` works correctly on all servers
+- ✅ Code feels less fragile and more maintainable
+- ✅ All Ansible functionality preserved (nested groups, variable inheritance)
+- ✅ Caching behavior unchanged - performance identical after first load
 
-**Future:** This requirement may be removed if FastMCP addresses the import hook conflict.
+**Where Applied:**
+- `docker_mcp_podman.py` - `_load_container_hosts()`
+- `ping_mcp_server.py` - `_load_inventory()`
+- `ups_mcp_server.py` - `_load_inventory()`
+- `pihole_mcp.py` - `_load_pihole_hosts()`
+- `ollama_mcp.py` - `_load_ollama_endpoints()`
+- `homelab_unified_mcp.py` - No Ansible import needed (sub-servers handle it)
 
 ### Configuration Hierarchy
 
@@ -1156,5 +1162,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and best prac
 
 **Remember:** This project manages critical infrastructure. Security and reliability are paramount. Always test thoroughly and never commit sensitive data.
 
-**Last Updated:** January 7, 2026
-**Current Version:** 2.2.1 (Security update - dependency vulnerability fixes)
+**Last Updated:** January 14, 2026
+**Current Version:** 3.0.0 (FastMCP refactor with lazy imports)

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.0.0] - 2026-01-13
+## [3.0.0] - 2026-01-14
 
 ⚠️ **BREAKING CHANGES** - See [MIGRATION_V3.md](MIGRATION_V3.md) for upgrade guide.
 
@@ -40,11 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cleaner, more maintainable architecture
   - Better type safety through FastMCP
 
-- **Import Order Fix:**
-  - Critical requirement: Import Ansible BEFORE FastMCP
-  - Prevents FileFinder hook conflicts
-  - Applied to all relevant server files
-  - Documented in CLAUDE.md
+- **Lazy Import Pattern:** Resolved Ansible/FastMCP import hook conflict
+  - Ansible imports moved to function-level (lazy loading)
+  - Import order is flexible - no strict requirements
+  - `uvx fastmcp inspect` works correctly on all servers
+  - All Ansible functionality preserved (nested groups, variable inheritance)
+  - Affected files: `docker_mcp_podman.py`, `ping_mcp_server.py`, `ups_mcp_server.py`, `pihole_mcp.py`, `ollama_mcp.py`
 
 ### Added
 
@@ -62,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added tool annotations documentation and best practices
   - Removed outdated dual-mode class-based patterns
   - Added FastMCP composition examples
-  - Import order requirements documented
+  - Lazy import pattern documented
 
 ### Fixed
 

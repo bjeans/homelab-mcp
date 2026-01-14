@@ -21,10 +21,6 @@ from typing import Optional
 
 import aiohttp
 
-# CRITICAL: Import Ansible BEFORE FastMCP to avoid import hook conflicts
-# FastMCP adds a second FileFinder import hook that breaks Ansible's collection loader
-from ansible_config_manager import load_group_hosts
-
 from fastmcp import FastMCP
 from mcp import types
 
@@ -72,6 +68,9 @@ def _load_ollama_endpoints():
 
     if _endpoints_cache is not None:
         return _endpoints_cache
+
+    # Lazy import - only load Ansible when needed
+    from ansible_config_manager import load_group_hosts
 
     # Try Ansible inventory first
     hosts = load_group_hosts(

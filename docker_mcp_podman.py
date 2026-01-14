@@ -23,10 +23,6 @@ from typing import Dict, Optional
 
 import aiohttp
 
-# CRITICAL: Import Ansible BEFORE FastMCP to avoid import hook conflicts
-# FastMCP adds a second FileFinder import hook that breaks Ansible's collection loader
-from ansible_config_manager import AnsibleConfigManager
-
 from fastmcp import FastMCP
 from mcp import types
 
@@ -72,6 +68,9 @@ def _load_container_hosts():
         logger.warning("No Ansible inventory path provided, using .env fallback")
         _container_hosts_cache = _load_container_hosts_from_env()
         return _container_hosts_cache
+
+    # Lazy import - only load Ansible when needed
+    from ansible_config_manager import AnsibleConfigManager
 
     container_hosts = {}
     manager = AnsibleConfigManager(

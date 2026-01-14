@@ -21,10 +21,6 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# CRITICAL: Import Ansible BEFORE FastMCP to avoid import hook conflicts
-# FastMCP adds a second FileFinder import hook that breaks Ansible's collection loader
-from ansible_config_manager import AnsibleConfigManager
-
 from fastmcp import FastMCP
 from mcp import types
 
@@ -92,6 +88,9 @@ def _load_inventory():
     if not ANSIBLE_INVENTORY_PATH:
         logger.error("No Ansible inventory path provided")
         return {"nut_servers": {}}
+
+    # Lazy import - only load Ansible when needed
+    from ansible_config_manager import AnsibleConfigManager
 
     # Use centralized config manager
     manager = AnsibleConfigManager(
