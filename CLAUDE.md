@@ -885,6 +885,35 @@ python ups_mcp_server.py
 python homelab_unified_mcp.py
 ```
 
+#### 4. FastMCP Inspection (Validation Check)
+
+Use `fastmcp inspect` to validate server configuration without starting the full MCP server. This catches import errors, missing dependencies, and tool registration issues.
+
+```bash
+# Simplest: Use fastmcp.json config (reads from requirements.txt automatically)
+./venv/bin/fastmcp inspect
+
+# With existing venv (skips uv environment setup)
+./venv/bin/fastmcp inspect --skip-env
+
+# Expected output:
+# Server
+#   Name:         Homelab Unified
+#   Tools:        29          ← Should show all tools registered
+#   ...
+
+# Validate individual servers directly
+./venv/bin/fastmcp inspect pihole_mcp.py:mcp      # Tools: 6
+./venv/bin/fastmcp inspect ollama_mcp.py:mcp      # Tools: 5
+./venv/bin/fastmcp inspect ups_mcp_server.py:mcp  # Tools: 5
+./venv/bin/fastmcp inspect ping_mcp_server.py:mcp # Tools: 6
+./venv/bin/fastmcp inspect docker_mcp_podman.py:mcp # Tools: 6
+```
+
+**When to use:** Run after any changes to server files, imports, or tool definitions. If inspection fails, the server won't work in Claude Desktop either.
+
+**Note:** The `fastmcp.json` config file defines the unified server as the default entry point. Use `--skip-env` when running from an activated venv to avoid reinstalling dependencies.
+
 ### Security Testing
 
 ```bash
@@ -1132,6 +1161,9 @@ docker build -t homelab-mcp:latest .          # Or build from source
 python pre_publish_check.py                   # Run security checks before commit
 python {service}_mcp_server.py               # Test specific server standalone
 python homelab_unified_mcp.py                # Run unified server
+
+# Validation (run after code changes)
+./venv/bin/fastmcp inspect --skip-env                  # Should show Tools: 29
 
 # Git workflow (ALWAYS use feature branches, NEVER commit to main)
 git checkout main && git pull origin main     # Start from updated main
