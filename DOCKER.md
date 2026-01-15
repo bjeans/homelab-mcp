@@ -607,6 +607,21 @@ RUN pip install -r requirements.txt
 COPY *.py .
 ```
 
+## Adding Docker Support for New Servers
+
+When adding new MCP servers or modifying Python files:
+
+See [CONTRIBUTING.md - Docker Integration Checklist](CONTRIBUTING.md#docker-integration-checklist) for:
+- When to update the Dockerfile
+- Docker build and testing workflow
+- Common Docker mistakes to avoid
+
+**Quick checklist:**
+- [ ] New `.py` files added to Dockerfile (if runtime code)
+- [ ] Docker build succeeds locally
+- [ ] Unified server starts in Docker container
+- [ ] Dependencies added to `requirements.txt` if needed
+
 ## Next Steps
 
 - Publish to Docker Hub marketplace

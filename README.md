@@ -1701,6 +1701,31 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for det
 - Documentation is clear and complete
 - Changes are tested
 
+## ⚡ Quick Commands Reference
+
+**One-time setup:**
+```bash
+cp .env.example .env                          # Create config file
+cp ansible_hosts.example.yml ansible_hosts.yml # Create Ansible inventory
+python helpers/install_git_hook.py            # Install pre-push security checks
+```
+
+**Docker deployment (production):**
+```bash
+docker pull bjeans/homelab-mcp:latest         # Pull pre-built image
+docker-compose up -d                          # Run with Docker Compose
+docker build -t homelab-mcp:latest .          # Or build from source
+```
+
+**Development:**
+```bash
+python helpers/pre_publish_check.py           # Run security checks
+python {service}_mcp_server.py               # Test specific server
+python homelab_unified_mcp.py                # Test unified mode
+```
+
+For more commands and development workflows, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## 🙏 Acknowledgments
 
 - [Anthropic](https://anthropic.com/) for Claude and MCP

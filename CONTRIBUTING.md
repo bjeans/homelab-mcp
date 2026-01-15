@@ -156,14 +156,175 @@ python helpers/run_checks.py
 
 ### Adding a New MCP Server
 
-1. Create the server file (e.g., `my_service_mcp.py`)
-2. Follow the existing pattern from other servers
-3. Add configuration to `.env.example`
-4. Update `README.md` with server documentation
-5. Update `PROJECT_INSTRUCTIONS.example.md`
-6. Update `CLAUDE.example.md` if adding AI development context
-7. Add security notes if the service uses API keys
-8. Test thoroughly
+See [CLAUDE.md - Architecture Patterns](CLAUDE.md#architecture-patterns) to understand the dual-mode server pattern before starting.
+
+#### Decision Tree
+
+Ask yourself these questions:
+
+1. **Is this a new service/tool?**
+   - YES → Create new `{service}_mcp_server.py`
+   - NO → Extend existing server (add new tool to existing service)
+
+2. **Does it need Ansible inventory configuration?**
+   - YES → Add host group to `ansible_hosts.yml` (e.g., `minio_servers:`)
+   - NO → Use .env variables only (e.g., `MINIO_API_KEY=...`)
+
+3. **Can it share code/patterns with existing servers?**
+   - YES → Study an existing server and follow the pattern
+   - NO → Still follow dual-mode pattern, but with unique logic
+
+4. **Does it need real-time polling or querying?**
+   - YES → Implement async queries in `handle_call_tool_impl()`
+   - NO → Query on-demand only (lazy loading)
+
+5. **Will this be used in unified mode?**
+   - YES (recommended) → Must support class-based + shared inventory
+   - NO → Standalone-only acceptable (but less preferred)
+
+#### Step-by-Step Guide
+
+**Step 1: Copy Template**
+Use the most recent server as template (currently `ups_mcp_server.py`):
+```bash
+cp ups_mcp_server.py {newservice}_mcp_server.py
+```
+
+**Step 2: Update Class and Function Names**
+```python
+# Replace UpsMCPServer with your service name
+class MinioMCPServer:
+    def __init__(self, ansible_inventory=None):
+        # Your code here
+        pass
+```
+
+**Step 3: Add Ansible Host Group**
+In `ansible_hosts.yml`:
+```yaml
+minio_servers:
+  minio-1:
+    ansible_host: 192.0.2.10
+    minio_port: 9000
+    minio_bucket: "backups"
+```
+
+**Step 4: Add Environment Variables**
+In `.env.example`:
+```
+# Minio configuration
+MINIO_ENDPOINT=http://minio-1:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+```
+
+**Step 5: Implement Tool Logic**
+In `handle_call_tool_impl()`:
+```python
+async def handle_call_tool_impl(name: str, arguments: dict, inventory: dict):
+    minio_servers = inventory.get("minio_servers", {})
+
+    if name == "list_buckets":
+        # Implementation
+        pass
+    elif name == "get_bucket_stats":
+        # Implementation
+        pass
+```
+
+**Step 6: Add to Unified Server**
+In `homelab_unified_mcp.py`:
+```python
+# Import
+from minio_mcp_server import MinioMCPServer
+
+# Initialize in __init__()
+self.minio = MinioMCPServer(ansible_inventory=shared_inventory)
+
+# In handle_list_tools()
+tools.extend(await self.minio.list_tools())
+
+# In handle_call_tool()
+elif name.startswith("minio_"):
+    return await self.minio.handle_tool(name, arguments)
+```
+
+**Step 7: Update Documentation**
+- Add to README.md with example commands
+- Add environment variables section to PROJECT_INSTRUCTIONS.example.md
+- Update CHANGELOG.md with version notes
+- Add host group to ansible_hosts.example.yml
+
+**Step 8: Update Dockerfile**
+See [Docker Integration Checklist](#docker-integration-checklist) below.
+
+**Step 9: Test**
+```bash
+# Test standalone mode
+python minio_mcp_server.py
+
+# Restart Claude Desktop (required for MCP reload)
+# Test in Claude with: @minio_list_buckets
+
+# Test unified mode by restarting Claude again
+# Test combined tool: @ups_get_status (still works)
+```
+
+### Docker Integration Checklist
+
+**Every time you create or modify Python files**, verify Docker integration:
+
+#### When to Update Dockerfile
+
+**ALWAYS update when:**
+- ✅ Creating new MCP server file (e.g., `minio_mcp_server.py`)
+- ✅ Creating new shared module (e.g., `mcp_error_handler.py`, `ansible_config_manager.py`)
+- ✅ Adding any `.py` file imported by runtime code
+
+**NEVER update for:**
+- ❌ Test files in `tests/` directory
+- ❌ Helper scripts in `helpers/` directory
+- ❌ Example/template files (`*.example.*`)
+- ❌ Documentation files (`.md`)
+
+#### Docker Update Workflow
+
+```bash
+# 1. Add file to Dockerfile in an organized manner
+COPY --chown=mcpuser:mcpuser your_new_file.py .
+
+# 2. Test build locally
+docker build -t homelab-mcp:test .
+
+# 3. Test that imports work
+docker run --rm homelab-mcp:test python -c "import your_new_module"
+
+# 4. Test the unified server starts
+# This command will start the server and hang indefinitely waiting for MCP stdio input (this is expected behavior).
+# You should see no errors, and can use Ctrl+C to exit.
+docker run --rm homelab-mcp:test python homelab_unified_mcp.py
+
+# Alternatively, you can use a timeout to automatically exit after a few seconds:
+timeout 2 docker run --rm homelab-mcp:test python homelab_unified_mcp.py || [ $? -eq 124 ]
+
+# Or, for a quick import check (does not start the server):
+docker run --rm homelab-mcp:test bash -c "python -c 'import homelab_unified_mcp'"
+```
+
+#### Common Docker Mistakes
+
+**Mistake:** Adding Python file but forgetting Dockerfile
+- **Symptom:** Works locally, fails in Docker with `ModuleNotFoundError`
+- **Fix:** Add `COPY` line to Dockerfile
+- **Example:** PR #32 created `mcp_error_handler.py` but forgot Dockerfile (fixed in commit d84d5d8)
+
+**Mistake:** Adding to Dockerfile but not `requirements.txt`
+- **Symptom:** Docker build fails with import errors
+- **Fix:** Add missing package to `requirements.txt`
+
+**Mistake:** Testing only standalone, not unified mode in Docker
+- **Symptom:** Individual servers work but unified container fails
+- **Fix:** Test `homelab_unified_mcp.py` in Docker before committing
 
 ### Code Style
 

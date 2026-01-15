@@ -269,6 +269,35 @@ ls -la .env
 # Should show: -rw------- (read/write for owner only)
 ```
 
+## ✓ Security Checklist
+
+Before any commit or deployment:
+
+### Code Changes
+- [ ] No hardcoded IPs, hostnames, or credentials
+- [ ] All sensitive data uses environment variables from `.env`
+- [ ] Example files use placeholder data (example.com, 192.0.2.x ranges)
+- [ ] Error messages don't expose internal details to users
+- [ ] `helpers/pre_publish_check.py` passes all checks
+- [ ] No real infrastructure details in commit messages
+- [ ] All new runtime `.py` files added to Dockerfile
+- [ ] Docker build tested locally (`docker build -t homelab-mcp:test .`)
+- [ ] If adding dependencies, updated `requirements.txt`
+
+### Configuration
+- [ ] `.env.example` includes all required variables
+- [ ] `ansible_hosts.example.yml` uses placeholder data
+- [ ] `PROJECT_INSTRUCTIONS.example.md` templates are generic
+- [ ] `.gitignore` properly excludes sensitive files
+- [ ] No `.env`, `ansible_hosts.yml`, or `CLAUDE_CUSTOM.md` in git history
+
+### Testing
+- [ ] Verified standalone mode works locally
+- [ ] Verified unified mode works locally
+- [ ] Tested Docker build succeeds
+- [ ] Tested unified server in Docker container
+- [ ] Run security checks pass without warnings
+
 ## 📚 Additional Resources
 
 - [Docker Security Best Practices](https://docs.docker.com/engine/security/)
