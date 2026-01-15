@@ -707,7 +707,8 @@ When you configure Ansible inventory, Claude Desktop will automatically show you
 **Important Notes:**
 - **Restart Required:** Changes to Ansible inventory require restarting Claude Desktop to update dropdown options
 - **Performance:** Enums generate once at startup - minimal impact even with large inventories (100+ hosts)
-- **Graceful Degradation:** If no Ansible inventory is configured, tools still work - you just won't see dropdown suggestions
+- **Dynamic Enum Generation:** Ansible MCP tools automatically populate dropdown menus with your actual hostnames and group names from the inventory, eliminating manual typing and reducing typos
+- **Graceful Degradation:** If no Ansible inventory is configured, tools still work as text inputs - you just won't see dropdown suggestions
 
 **Example before/after:**
 
@@ -977,24 +978,22 @@ UNIFI_HOST=192.168.1.1
 
 Query Ansible inventory information (read-only). Available in both unified and standalone modes.
 
+**✨ New in v3.1:** Dynamic enum generation - hostnames and group names appear as dropdown menus in MCP clients, eliminating manual typing and reducing typos.
+
 **Unified Mode Tools** (with `ansible_` prefix):
-- `ansible_get_all_hosts` - Get all hosts in inventory
-- `ansible_get_all_groups` - Get all groups
-- `ansible_get_host_details` - Get detailed host information
-- `ansible_get_group_details` - Get detailed group information
-- `ansible_get_hosts_by_group` - Get hosts in specific group
-- `ansible_search_hosts` - Search hosts by pattern or variable
-- `ansible_get_inventory_summary` - High-level inventory overview
+- `ansible_list_all_hosts` - Get all hosts in inventory
+- `ansible_list_groups` - Get all groups
+- `ansible_get_host_details` - Get detailed host information (✨ hostname dropdown)
+- `ansible_get_group_hosts` - Get hosts in specific group (✨ group dropdown)
+- `ansible_query_hosts` - Search hosts by pattern or variable
 - `ansible_reload_inventory` - Reload inventory from disk
 
 **Standalone Mode Tools** (without prefix):
-- `get_all_hosts` - Get all hosts in inventory
-- `get_all_groups` - Get all groups
-- `get_host_details` - Get detailed host information
-- `get_group_details` - Get detailed group information
-- `get_hosts_by_group` - Get hosts in specific group
-- `search_hosts` - Search hosts by pattern or variable
-- `get_inventory_summary` - High-level inventory overview
+- `list_all_hosts` - Get all hosts in inventory
+- `list_groups` - Get all groups
+- `get_host_details` - Get detailed host information (✨ hostname dropdown)
+- `get_group_hosts` - Get hosts in specific group (✨ group dropdown)
+- `query_hosts` - Search hosts by pattern or variable
 - `reload_inventory` - Reload inventory from disk
 
 **Configuration:**
@@ -1002,6 +1001,11 @@ Query Ansible inventory information (read-only). Available in both unified and s
 ```bash
 ANSIBLE_INVENTORY_PATH=/path/to/ansible_hosts.yml
 ```
+
+**Features:**
+- 📋 **Dynamic Dropdowns:** Select from your actual hostnames and groups instead of manual typing
+- 🔄 **Auto-Reload:** Use `reload_inventory` tool to refresh enums without restarting Claude Desktop
+- 🛡️ **Graceful Degradation:** Works without Ansible inventory (no dropdown suggestions)
 
 **Deployment:**
 - ✅ Available in unified server mode

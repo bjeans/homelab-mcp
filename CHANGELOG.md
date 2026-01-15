@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Ansible MCP**: Dynamic enum generation for tool parameters - hostnames and group names now appear as dropdown menus in MCP clients like Claude Desktop, eliminating manual typing and typos (#40)
+
 ## [3.0.0] - 2026-01-14
 
 ⚠️ **BREAKING CHANGES** - See [MIGRATION_V3.md](MIGRATION_V3.md) for upgrade guide.
