@@ -7,18 +7,186 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Ansible MCP Server Integration:** Complete integration of `ansible_mcp_server.py` into unified server and Docker deployment
-  - Refactored `AnsibleInventoryMCP` class to support dual-mode operation (standalone + unified)
-  - Added `list_tools()` and `handle_tool()` methods with `ansible_` prefix for unified mode
-  - Integrated into `homelab_unified_mcp.py` with proper routing and tool listing
-  - Added to Dockerfile for Docker deployments
-  - All 8 Ansible inventory tools now available: `ansible_get_all_hosts`, `ansible_get_all_groups`, `ansible_get_host_details`, `ansible_get_group_details`, `ansible_get_hosts_by_group`, `ansible_search_hosts`, `ansible_get_inventory_summary`, `ansible_reload_inventory`
-  - Closes issue #39
+## [3.0.0] - 2026-01-14
+
+⚠️ **BREAKING CHANGES** - See [MIGRATION_V3.md](MIGRATION_V3.md) for upgrade guide.
+
+### Breaking Changes
+
+- **Tool Name Changes:** 20+ tool names renamed for consistency
+  - All list operations now use `list_*` prefix (e.g., `get_all_hosts` → `list_all_hosts`)
+  - All detail operations now use `get_*` prefix (e.g., `check_container` → `get_container_details`)
+  - See [MIGRATION_V3.md](MIGRATION_V3.md) for complete mapping
+- **Removed Tools:**
+  - `docker_get_all_containers` - Merged into `docker_list_containers`
+  - `docker_find_containers_by_label` - Use `docker_list_containers` with filtering
+  - `docker_get_container_labels` - Included in `docker_get_container_details`
+  - `pihole_get_status` - Merged into `pihole_get_summary`
+  - `ollama_get_litellm_status` - Use `ollama_list_hosts`
+  - `ups_get_power_events` - Planned for future release
 
 ### Changed
-- **Unified Server:** Updated from 6 to 7 MCP servers with Ansible integration (Ansible, Docker, Ping, Ollama, Pi-hole, Unifi, UPS)
-- **Documentation:** Updated README.md to reflect Ansible integration completion
+
+- **Complete Architecture Rewrite:**
+  - Unified server now uses FastMCP's native composition pattern
+  - Eliminated 500+ lines of manual wrapper functions
+  - Reduced unified server to ~105 lines (79% reduction)
+  - No more parameter duplication or signature mismatches
+  - Direct tool registration via FastMCP's `add_tool()` method
+
+- **Improved Code Quality:**
+  - 38% overall code reduction (1,754 lines eliminated)
+  - Single source of truth for each tool
+  - Cleaner, more maintainable architecture
+  - Better type safety through FastMCP
+
+- **Lazy Import Pattern:** Resolved Ansible/FastMCP import hook conflict
+  - Ansible imports moved to function-level (lazy loading)
+  - Import order is flexible - no strict requirements
+  - `uvx fastmcp inspect` works correctly on all servers
+  - All Ansible functionality preserved (nested groups, variable inheritance)
+  - Affected files: `docker_mcp_podman.py`, `ping_mcp_server.py`, `ups_mcp_server.py`, `pihole_mcp.py`, `ollama_mcp.py`
+
+### Added
+
+- **MCP Tool Annotations:** Restored comprehensive behavioral hints to all 39 tools
+  - `readOnlyHint=True` - All tools (monitoring operations only)
+  - `destructiveHint=False` - All tools (non-mutating)
+  - `idempotentHint=True` - Inventory/config queries (stable data)
+  - `idempotentHint=False` - Runtime status queries (time-varying data)
+  - `openWorldHint=True` - All tools (external system interaction)
+  - Helps MCP clients make informed decisions about tool usage and retry logic
+
+- **Comprehensive Documentation:**
+  - **[MIGRATION_V3.md](MIGRATION_V3.md)** - Complete v2.x to v3.0 upgrade guide
+  - Updated **CLAUDE.md** with FastMCP decorator patterns
+  - Added tool annotations documentation and best practices
+  - Removed outdated dual-mode class-based patterns
+  - Added FastMCP composition examples
+  - Lazy import pattern documented
+
+### Fixed
+
+- **Parameter Order Issues:** Resolved mismatched parameter ordering in:
+  - `docker_get_container_details` - Now correctly passes `(host, container_id)`
+  - `docker_get_container_logs` - Now correctly passes `(host, container_id, lines)`
+  - `ollama_get_model_info` - Now correctly passes `(host, model_name)`
+
+- **Async/Await Issues:** Fixed synchronous functions incorrectly marked as async:
+  - `ansible_query_hosts` - Removed incorrect `await`
+
+- **Signature Mismatches:** Fixed parameter count/name mismatches:
+  - Pi-hole tools: Corrected `host` → `display_name` parameter names
+  - UPS tools: Removed invalid `host` parameters
+  - Ollama tools: Removed invalid `host` parameter from `get_running_models`
+
+### Technical Improvements
+
+- **FastMCP Native Composition:** Eliminates manual wrapper pattern
+  - Uses `mcp._tool_manager._tools` to access decorated tools
+  - Direct `add_tool()` registration instead of manual wrapping
+  - No more `.fn()` accessor hacks
+  - Tools remain callable and properly typed
+
+- **Consistent Naming Convention:**
+  - `list_*` - Returns lists/collections
+  - `get_*` - Returns specific item details
+  - `reload_*` - Reloads configuration
+
+- **Better Developer Experience:**
+  - Standard SDK: ~100 lines per tool
+  - FastMCP: ~10-20 lines per tool
+  - Type hints auto-generate schemas
+  - Docstrings become descriptions
+
+### Migration Impact
+
+| Category | Impact |
+|----------|--------|
+| Tool Names | ❌ Breaking (20+ renamed) |
+| API Signatures | ✅ Compatible |
+| Configuration | ✅ Compatible |
+| Docker Deployment | ✅ Compatible |
+| Code Quality | ✅ Significantly improved |
+
+**Upgrade Time:** 15-30 minutes to update tool references in workflows
+
+### Credits
+
+- Architecture redesign and implementation by Claude Code (Anthropic)
+- Code review feedback incorporated from automated PR review agents
+- Testing and validation by @bjeans
+
+## [2.3.0] - 2026-01-11
+
+### Added
+- **FastMCP Framework Migration:** Complete migration of all 7 MCP servers to the FastMCP framework
+  - Modern, simplified server architecture reducing code complexity
+  - Support for multiple transport mechanisms (stdio, HTTP, SSE)
+  - Improved error handling and logging capabilities
+  - Enhanced type safety and code organization
+- **Multiple Transport Support:**
+  - **stdio transport (default)** - Traditional MCP protocol via stdin/stdout for Claude Desktop
+  - **HTTP transport** - REST API for remote deployments and web integrations
+  - **SSE transport** - Server-Sent Events for real-time bidirectional communication
+  - All transports configurable via command-line arguments (`--transport`, `--host`, `--port`)
+- **Comprehensive Documentation:**
+  - New FastMCP framework section in README.md explaining transport options
+  - Migration guide for v2.2.0 users (no breaking changes)
+  - Examples for running servers with different transport mechanisms
+  - Updated version number to v2.3.0 throughout documentation
+
+### Changed
+- **All 7 MCP Servers:** Migrated from standard MCP SDK to FastMCP framework
+  - `homelab_unified_mcp.py` - Unified server with all 7 servers
+  - `ansible_mcp_server.py` - Ansible inventory queries
+  - `docker_mcp_podman.py` - Docker/Podman container monitoring
+  - `ollama_mcp.py` - Ollama AI model management
+  - `pihole_mcp.py` - Pi-hole DNS monitoring
+  - `ping_mcp_server.py` - Network connectivity testing
+  - `unifi_mcp_optimized.py` - Unifi network device monitoring
+  - `ups_mcp_server.py` - UPS/NUT monitoring
+- **Server Architecture:** Simplified from dual-mode pattern to unified FastMCP pattern
+  - Eliminates complex class/module handler splitting
+  - Cleaner tool registration and dispatch
+  - More maintainable codebase for future development
+- **Documentation:** Updated README.md with FastMCP framework section and transport options
+
+### Improved
+- **Code Quality:** 38% reduction in codebase (1,754 lines eliminated)
+  - Cleaner server implementations
+  - Reduced code duplication
+  - Better separation of concerns
+  - Improved maintainability for contributors
+- **Developer Experience:**
+  - Simpler pattern for creating new servers
+  - Easier debugging with FastMCP tools
+  - Better error messages and logging
+- **Deployment Flexibility:** Multiple transport options enable new use cases
+  - Remote server deployments with HTTP transport
+  - Real-time monitoring with SSE transport
+  - Web-based integrations
+  - Load balancing scenarios
+
+### Backward Compatibility
+- ✅ **No breaking changes** - All existing Claude Desktop configurations continue to work
+- ✅ **Same functionality** - All 7 servers and all tools remain identical
+- ✅ **Same tool names** - Unified mode prefixes and standalone tool names unchanged
+- ✅ **Same configuration** - `.env` and Ansible inventory files work without modification
+- Upgrade path: Simply update and restart Claude Desktop - no action required
+
+### Technical Details
+- FastMCP framework provides native support for multiple transports
+- Reduced server initialization overhead with FastMCP's optimized startup
+- Improved async/await handling for better concurrency
+- Enhanced tool metadata support for better Claude Desktop integration
+- Cleaner error handling with FastMCP's built-in error management
+
+### Benefits
+- **For Users:** No disruption - everything works as before, with new deployment options
+- **For Developers:** Cleaner codebase and easier to add new servers
+- **For Operations:** New transport options enable more flexible deployments
+- **For Maintenance:** Simpler code reduces bugs and makes fixes faster
 
 ## [2.2.1] - 2026-01-07
 

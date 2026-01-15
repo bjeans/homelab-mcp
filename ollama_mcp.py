@@ -1,41 +1,42 @@
 #!/usr/bin/env python3
 """
-Ollama MCP Server
+Ollama MCP Server v2.0 (FastMCP)
 Provides access to Ollama instances and models
 Reads host configuration from Ansible inventory
+
+Features:
+- Check status of all Ollama instances
+- Get models on specific hosts
+- Check LiteLLM proxy status
+- Automatic discovery via Ansible inventory
+- Supports stdio, HTTP, and SSE transports
 """
 
 import asyncio
-import json
 import logging
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 import aiohttp
-import yaml
+
+from fastmcp import FastMCP
+from mcp import types
+
+from mcp_config_loader import COMMON_ALLOWED_ENV_VARS, load_env_file
+from mcp_error_handler import MCPErrorClassifier, log_error_with_context
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
-import mcp.server.stdio
-import mcp.types as types
-from mcp.server import NotificationOptions, Server
-from mcp.server.models import InitializationOptions
-
-from ansible_config_manager import load_group_hosts
-from mcp_config_loader import COMMON_ALLOWED_ENV_VARS, load_env_file
-from mcp_error_handler import MCPErrorClassifier, log_error_with_context
-
-server = Server("ollama-info")
+# Initialize FastMCP server
+mcp = FastMCP("Ollama Monitor")
 
 # Load .env with security hardening
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / ".env"
 
-# Allowlist for Ollama server - use pattern matching for flexibility
-# OLLAMA_* matches OLLAMA_PORT, OLLAMA_SERVER1, OLLAMA_CUSTOM_HOST, etc.
-# LITELLM_* matches all LiteLLM proxy configuration variables
 OLLAMA_ALLOWED_VARS = COMMON_ALLOWED_ENV_VARS | {
     "OLLAMA_*",  # Pattern: covers OLLAMA_PORT, OLLAMA_SERVER*, OLLAMA_INVENTORY_GROUP, etc.
     "LITELLM_*",  # Pattern: covers LITELLM_HOST, LITELLM_PORT, etc.
@@ -57,186 +58,54 @@ LITELLM_PORT = os.getenv("LITELLM_PORT", "4000")
 logger.info(f"Ansible inventory: {ANSIBLE_INVENTORY_PATH}")
 logger.info(f"LiteLLM endpoint: {LITELLM_HOST}:{LITELLM_PORT}")
 
+# Global cache for ollama endpoints
+_endpoints_cache = None
 
-def load_ollama_endpoints_from_ansible(inventory=None):
-    """
-    Load Ollama endpoints from Ansible inventory using centralized config manager
-    Returns dict of {display_name: ip_address}
 
-    Args:
-        inventory: Optional pre-loaded inventory (for compatibility, unused now)
-    """
-    # Use centralized config manager - handles Ansible library or YAML fallback
+def _load_ollama_endpoints():
+    """Load Ollama endpoints from Ansible inventory or environment variables"""
+    global _endpoints_cache
+
+    if _endpoints_cache is not None:
+        return _endpoints_cache
+
+    # Lazy import - only load Ansible when needed
+    from ansible_config_manager import load_group_hosts
+
+    # Try Ansible inventory first
     hosts = load_group_hosts(
         OLLAMA_INVENTORY_GROUP,
         inventory_path=ANSIBLE_INVENTORY_PATH,
         logger_obj=logger
     )
-    
-    if not hosts:
-        logger.warning(f"No hosts found in '{OLLAMA_INVENTORY_GROUP}' group")
-        return load_ollama_endpoints_from_env()
-    
-    logger.info(f"Found {len(hosts)} Ollama hosts from Ansible inventory")
-    return hosts
 
+    if hosts:
+        logger.info(f"Found {len(hosts)} Ollama hosts from Ansible inventory")
+        _endpoints_cache = hosts
+        return _endpoints_cache
 
-def load_ollama_endpoints_from_env():
-    """
-    Fallback: Load Ollama endpoints from environment variables
-    Returns dict of {display_name: ip_address}
-    
-    BUG FIX (2025-10-21): Strip port numbers from env var values
-    Environment variables may include ports (e.g., "192.168.1.100:11434")
-    but the port is added separately in ollama_request() via OLLAMA_PORT config.
-    Without stripping, URLs would have double ports (e.g., :11434:11434)
-    """
+    # Fallback to environment variables
+    logger.warning(f"No hosts found in '{OLLAMA_INVENTORY_GROUP}' group, checking environment variables")
     endpoints = {}
 
-    # Look for OLLAMA_* environment variables
     for key, value in os.environ.items():
-        if key.startswith("OLLAMA_") and key not in ["OLLAMA_PORT"]:
-            # Convert OLLAMA_SERVER1 to Server1
+        if key.startswith("OLLAMA_") and key not in ["OLLAMA_PORT", "OLLAMA_INVENTORY_GROUP"]:
             display_name = key.replace("OLLAMA_", "").replace("_", "-").title()
-            # Strip port if included (e.g., "192.168.1.100:11434" -> "192.168.1.100")
-            # Port is added separately in ollama_request() via OLLAMA_PORT config
-            ip_only = value.split(":")[0] if ":" in value else value  # ✓ Strip port
+            # Strip port if included (port is added separately via OLLAMA_PORT)
+            ip_only = value.split(":")[0] if ":" in value else value
             endpoints[display_name] = ip_only
             if ip_only != value:
                 logger.info(f"Loaded from env: {display_name} -> {ip_only} (stripped port from {value})")
             else:
                 logger.info(f"Loaded from env: {display_name} -> {ip_only}")
 
-    return endpoints
+    _endpoints_cache = endpoints
+    return _endpoints_cache
 
 
-# Load Ollama endpoints on startup (module-level for standalone mode)
-OLLAMA_ENDPOINTS = {}
-LITELLM_CONFIG = {}
-
-if __name__ == "__main__":
-    OLLAMA_ENDPOINTS = load_ollama_endpoints_from_ansible()
-    LITELLM_CONFIG = {"host": LITELLM_HOST, "port": LITELLM_PORT}
-
-    if not OLLAMA_ENDPOINTS:
-        logger.error("No Ollama endpoints configured!")
-        logger.error("Please set ANSIBLE_INVENTORY_PATH or OLLAMA_* environment variables")
-
-
-class OllamaMCPServer:
-    """Ollama MCP Server - Class-based implementation"""
-
-    def __init__(self, ansible_inventory=None, ansible_config=None):
-        """Initialize configuration using existing config loading logic
-
-        Args:
-            ansible_inventory: Optional pre-loaded Ansible inventory dict (for unified mode)
-            ansible_config: Optional AnsibleConfigManager instance (for enum generation)
-        """
-        # Load environment configuration (skip if in unified mode)
-        if not os.getenv("MCP_UNIFIED_MODE"):
-            load_env_file(ENV_FILE, allowed_vars=OLLAMA_ALLOWED_VARS, strict=True)
-
-        self.ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
-        self.ollama_port = int(os.getenv("OLLAMA_PORT", "11434"))
-        self.ollama_inventory_group = os.getenv("OLLAMA_INVENTORY_GROUP", "ollama_servers")
-
-        # LiteLLM configuration
-        self.litellm_host = os.getenv("LITELLM_HOST", "localhost")
-        self.litellm_port = os.getenv("LITELLM_PORT", "4000")
-
-        logger.info(f"[OllamaMCPServer] Ansible inventory: {self.ansible_inventory_path}")
-        logger.info(f"[OllamaMCPServer] LiteLLM endpoint: {self.litellm_host}:{self.litellm_port}")
-
-        # Store config manager for enum generation
-        self.ansible_config = ansible_config
-
-        # Load Ollama endpoints (use pre-loaded inventory if provided)
-        self.ollama_endpoints = load_ollama_endpoints_from_ansible(ansible_inventory)
-
-        if not self.ollama_endpoints:
-            logger.warning("[OllamaMCPServer] No Ollama endpoints configured!")
-
-    async def list_tools(self) -> list[types.Tool]:
-        """Return list of Tool objects this server provides (with ollama_ prefix)"""
-        # Get dynamic enums from Ansible inventory
-        ollama_hosts = []
-        if self.ansible_config and self.ansible_config.is_available():
-            ollama_hosts = self.ansible_config.get_ollama_hosts()
-
-        # Fall back to loaded endpoints if no Ansible config
-        if not ollama_hosts and self.ollama_endpoints:
-            ollama_hosts = sorted(list(self.ollama_endpoints.keys()))
-
-        # Build host parameter schema with optional enum
-        host_property = {
-            "type": "string",
-            "description": "Ollama host from your Ansible inventory",
-        }
-        if ollama_hosts:
-            host_property["enum"] = ollama_hosts
-
-        return [
-            types.Tool(
-                name="ollama_get_status",
-                description="Check status of all Ollama instances",
-                inputSchema={"type": "object", "properties": {}},
-                title="Get Ollama Status",
-                annotations=types.ToolAnnotations(
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=False,
-                    openWorldHint=True,
-                )
-            ),
-            types.Tool(
-                name="ollama_get_models",
-                description="Get models on a specific Ollama host",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "host": host_property
-                    },
-                    "required": ["host"],
-                },
-                title="Get Ollama Models",
-                annotations=types.ToolAnnotations(
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=False,
-                    openWorldHint=True,
-                )
-            ),
-            types.Tool(
-                name="ollama_get_litellm_status",
-                description="Check LiteLLM proxy status",
-                inputSchema={"type": "object", "properties": {}},
-                title="Get LiteLLM Status",
-                annotations=types.ToolAnnotations(
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=False,
-                    openWorldHint=True,
-                )
-            ),
-        ]
-
-    async def handle_tool(self, tool_name: str, arguments: dict | None) -> list[types.TextContent]:
-        """Route tool calls to appropriate handler methods"""
-        # Strip the ollama_ prefix for routing
-        name = tool_name.replace("ollama_", "", 1) if tool_name.startswith("ollama_") else tool_name
-
-        logger.info(f"[OllamaMCPServer] Tool called: {tool_name} -> {name} with args: {arguments}")
-
-        # Call the shared implementation
-        return await handle_call_tool_impl(
-            name, arguments, self.ollama_endpoints, self.ollama_port,
-            self.litellm_host, self.litellm_port
-        )
-
-
-async def ollama_request(host_ip: str, endpoint: str, port: int = 11434, timeout: int = 5):
-    """Make request to Ollama API
+async def ollama_request(host_ip: str, endpoint: str, port: int = 11434, timeout: int = 5) -> Optional[dict]:
+    """
+    Make request to Ollama API
 
     Args:
         host_ip: Ollama host IP address
@@ -291,243 +160,229 @@ async def ollama_request(host_ip: str, endpoint: str, port: int = 11434, timeout
         return None
 
 
-@server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    """List available Ollama tools"""
-    return [
-        types.Tool(
-            name="get_ollama_status",
-            description="Check status of all Ollama instances",
-            inputSchema={"type": "object", "properties": {}},
-            title="Get Ollama Status",
-            annotations=types.ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
-            )
-        ),
-        types.Tool(
-            name="get_ollama_models",
-            description="Get models on a specific Ollama host",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "host": {
-                        "type": "string",
-                        "description": f"Host: {', '.join(OLLAMA_ENDPOINTS.keys())}",
-                    }
-                },
-                "required": ["host"],
-            },
-            title="Get Ollama Models",
-            annotations=types.ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
-            )
-        ),
-        types.Tool(
-            name="get_litellm_status",
-            description="Check LiteLLM proxy status",
-            inputSchema={"type": "object", "properties": {}},
-            title="Get LiteLLM Status",
-            annotations=types.ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
-            )
-        ),
-    ]
+# FastMCP Tools
 
+@mcp.tool(
+    title="List Ollama Instances",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
+async def list_hosts() -> str:
+    """Check status of all Ollama instances"""
+    endpoints = _load_ollama_endpoints()
 
-async def handle_call_tool_impl(
-    name: str, arguments: dict | None, ollama_endpoints: dict, ollama_port: int,
-    litellm_host: str, litellm_port: str
-) -> list[types.TextContent]:
-    """Core tool execution logic that can be called by both class and module-level handlers"""
-    try:
-        if name == "get_status" or name == "get_ollama_status":
-            output = "=== OLLAMA STATUS ===\n\n"
-            total_models = 0
-            online = 0
+    if not endpoints:
+        return "No Ollama endpoints configured. Please set ANSIBLE_INVENTORY_PATH or OLLAMA_* environment variables."
 
-            for host_name, ip in ollama_endpoints.items():
-                data = await ollama_request(ip, "/api/tags", ollama_port, timeout=3)
+    output = "=== OLLAMA STATUS ===\n\n"
+    total_models = 0
+    online = 0
 
-                if data:
-                    models = data.get("models", [])
-                    count = len(models)
-                    total_models += count
-                    online += 1
+    for host_name, ip in endpoints.items():
+        data = await ollama_request(ip, "/api/tags", OLLAMA_PORT, timeout=3)
 
-                    output += f"✓ {host_name} ({ip}): {count} models\n"
-                    for model in models[:3]:
-                        name = model.get("name", "Unknown")
-                        size = model.get("size", 0) / (1024**3)
-                        output += f"    - {name} ({size:.1f}GB)\n"
-                    if count > 3:
-                        output += f"    ... and {count-3} more\n"
-                    output += "\n"
-                else:
-                    output += f"✗ {host_name} ({ip}): OFFLINE\n\n"
-
-            output = (
-                f"Summary: {online}/{len(ollama_endpoints)} online, {total_models} models\n\n"
-                + output
-            )
-            return [types.TextContent(type="text", text=output)]
-
-        elif name == "get_models" or name == "get_ollama_models":
-            host = arguments.get("host")
-            if host not in ollama_endpoints:
-                return [types.TextContent(type="text", text=f"Invalid host: {host}")]
-
-            ip = ollama_endpoints[host]
-            data = await ollama_request(ip, "/api/tags", ollama_port, timeout=5)
-
-            if not data:
-                return [types.TextContent(type="text", text=f"{host} is offline")]
-
+        if data:
             models = data.get("models", [])
-            output = f"=== {host} ({ip}) ===\n\n"
-            output += f"Models: {len(models)}\n\n"
+            count = len(models)
+            total_models += count
+            online += 1
 
-            for model in models:
+            output += f"✓ {host_name} ({ip}): {count} models\n"
+            for model in models[:3]:
                 name = model.get("name", "Unknown")
                 size = model.get("size", 0) / (1024**3)
-                modified = model.get("modified_at", "Unknown")
-                output += f"• {name}\n"
-                output += f"  Size: {size:.2f}GB\n"
-                output += f"  Modified: {modified}\n\n"
+                output += f"    - {name} ({size:.1f}GB)\n"
+            if count > 3:
+                output += f"    ... and {count-3} more\n"
+            output += "\n"
+        else:
+            output += f"✗ {host_name} ({ip}): OFFLINE\n\n"
 
-            return [types.TextContent(type="text", text=output)]
-
-        elif name == "get_litellm_status":
-            url = f"http://{litellm_host}:{litellm_port}/health/liveliness"
-            logger.info(f"Checking LiteLLM at {url}")
-
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        url, timeout=aiohttp.ClientTimeout(total=5)
-                    ) as response:
-                        logger.info(f"LiteLLM response status: {response.status}")
-                        if response.status == 200:
-                            data = (
-                                await response.text()
-                            )  # Liveliness returns text, not JSON
-                            output = f"✓ LiteLLM Proxy: ONLINE\n"
-                            output += f"Endpoint: {litellm_host}:{litellm_port}\n\n"
-                            output += f"Liveliness Check: {data}"
-                            return [types.TextContent(type="text", text=output)]
-                        elif response.status == 401:
-                            error_msg = MCPErrorClassifier.format_http_error(
-                                service_name="LiteLLM Proxy",
-                                status_code=401,
-                                hostname=f"{litellm_host}:{litellm_port}",
-                                custom_remediation="LiteLLM requires authentication. Configure API key if authentication is enabled."
-                            )
-                            return [types.TextContent(type="text", text=error_msg)]
-                        elif response.status == 429:
-                            error_msg = MCPErrorClassifier.format_http_error(
-                                service_name="LiteLLM Proxy",
-                                status_code=429,
-                                hostname=f"{litellm_host}:{litellm_port}",
-                                custom_remediation="Rate limit exceeded. Wait a few moments before retrying."
-                            )
-                            return [types.TextContent(type="text", text=error_msg)]
-                        else:
-                            error_msg = MCPErrorClassifier.format_http_error(
-                                service_name="LiteLLM Proxy",
-                                status_code=response.status,
-                                hostname=f"{litellm_host}:{litellm_port}"
-                            )
-                            log_error_with_context(
-                                logger,
-                                f"LiteLLM returned HTTP {response.status}",
-                                context={"host": litellm_host, "port": litellm_port, "status": response.status}
-                            )
-                            return [types.TextContent(type="text", text=error_msg)]
-            except asyncio.TimeoutError:
-                error_msg = MCPErrorClassifier.format_timeout_error(
-                    service_name="LiteLLM Proxy",
-                    hostname=litellm_host,
-                    port=int(litellm_port),
-                    timeout_seconds=5
-                )
-                log_error_with_context(
-                    logger,
-                    "LiteLLM connection timeout",
-                    context={"host": litellm_host, "port": litellm_port}
-                )
-                return [types.TextContent(type="text", text=error_msg)]
-            except aiohttp.ClientConnectorError as e:
-                error_msg = MCPErrorClassifier.format_connection_error(
-                    service_name="LiteLLM Proxy",
-                    hostname=litellm_host,
-                    port=int(litellm_port),
-                    additional_guidance="Ensure LiteLLM proxy is running. Check: docker ps | grep litellm"
-                )
-                log_error_with_context(
-                    logger,
-                    "LiteLLM connection refused",
-                    error=e,
-                    context={"host": litellm_host, "port": litellm_port}
-                )
-                return [types.TextContent(type="text", text=error_msg)]
-            except Exception as e:
-                error_msg = MCPErrorClassifier.format_error_message(
-                    service_name="LiteLLM Proxy",
-                    error_type="Unexpected Error",
-                    message=f"Failed to check LiteLLM status",
-                    remediation="Check the error details and ensure LiteLLM proxy is accessible.",
-                    details=str(e),
-                    hostname=f"{litellm_host}:{litellm_port}"
-                )
-                log_error_with_context(logger, "LiteLLM check error", error=e, context={"host": litellm_host, "port": litellm_port})
-                return [types.TextContent(type="text", text=error_msg)]
-
-    except Exception as e:
-        error_msg = MCPErrorClassifier.format_error_message(
-            service_name="Ollama",
-            error_type="Tool Execution Error",
-            message=f"Failed to execute tool '{name}'",
-            remediation="Check the logs for detailed error information. Ensure Ollama instances are configured correctly.",
-            details=str(e)
-        )
-        log_error_with_context(logger, f"Error in tool {name}", error=e, context={"tool": name, "arguments": arguments})
-        return [types.TextContent(type="text", text=error_msg)]
+    output = f"Summary: {online}/{len(endpoints)} online, {total_models} models\n\n" + output
+    return output
 
 
-@server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: dict | None
-) -> list[types.TextContent]:
-    """Handle tool calls (module-level wrapper for standalone mode)"""
-    # For standalone mode, use the global variables
-    return await handle_call_tool_impl(
-        name, arguments, OLLAMA_ENDPOINTS, OLLAMA_PORT, LITELLM_HOST, LITELLM_PORT
+@mcp.tool(
+    title="List Models on Host",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
     )
+)
+async def list_models(host: str) -> str:
+    """
+    Get models on a specific Ollama host
+
+    Args:
+        host: Ollama host from your Ansible inventory
+    """
+    endpoints = _load_ollama_endpoints()
+
+    if host not in endpoints:
+        return f"Invalid host: {host}\nAvailable hosts: {', '.join(endpoints.keys())}"
+
+    ip = endpoints[host]
+    data = await ollama_request(ip, "/api/tags", OLLAMA_PORT, timeout=5)
+
+    if not data:
+        return f"{host} is offline or unreachable"
+
+    models = data.get("models", [])
+    output = f"=== {host} ({ip}) ===\n\n"
+    output += f"Models: {len(models)}\n\n"
+
+    for model in models:
+        name = model.get("name", "Unknown")
+        size = model.get("size", 0) / (1024**3)
+        modified = model.get("modified_at", "Unknown")
+        output += f"• {name}\n"
+        output += f"  Size: {size:.2f}GB\n"
+        output += f"  Modified: {modified}\n\n"
+
+    return output
 
 
-async def main():
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="ollama-info",
-                server_version="2.0.0",
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
-        )
+@mcp.tool(
+    title="Get Model Info",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
+async def get_model_info(host: str, model_name: str) -> str:
+    """
+    Get detailed information about a specific model on a host
+
+    Args:
+        host: Ollama host from your Ansible inventory
+        model_name: Name of the model to query
+    """
+    endpoints = _load_ollama_endpoints()
+
+    if host not in endpoints:
+        return f"Invalid host: {host}\nAvailable hosts: {', '.join(endpoints.keys())}"
+
+    ip = endpoints[host]
+    data = await ollama_request(ip, "/api/tags", OLLAMA_PORT, timeout=5)
+
+    if not data:
+        return f"{host} is offline or unreachable"
+
+    models = data.get("models", [])
+
+    # Find the specific model
+    for model in models:
+        name = model.get("name", "")
+        if name == model_name or name.startswith(model_name):
+            size = model.get("size", 0) / (1024**3)
+            modified = model.get("modified_at", "Unknown")
+            digest = model.get("digest", "Unknown")
+
+            output = f"=== MODEL INFO: {name} on {host} ===\n\n"
+            output += f"Size: {size:.2f}GB\n"
+            output += f"Modified: {modified}\n"
+            output += f"Digest: {digest}\n"
+
+            details = model.get("details", {})
+            if details:
+                output += f"\nDetails:\n"
+                for key, value in details.items():
+                    output += f"  {key}: {value}\n"
+
+            return output
+
+    return f"Model '{model_name}' not found on {host}"
 
 
+@mcp.tool(
+    title="Get Running Models",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
+async def get_running_models() -> str:
+    """Get currently running models across all Ollama hosts"""
+    endpoints = _load_ollama_endpoints()
+
+    if not endpoints:
+        return "No Ollama endpoints configured."
+
+    output = "=== RUNNING MODELS ===\n\n"
+    total_running = 0
+
+    for host_name, ip in endpoints.items():
+        # Query running models endpoint
+        data = await ollama_request(ip, "/api/ps", OLLAMA_PORT, timeout=3)
+
+        if data:
+            models = data.get("models", [])
+            if models:
+                total_running += len(models)
+                output += f"• {host_name} ({ip}):\n"
+                for model in models:
+                    name = model.get("name", "Unknown")
+                    size = model.get("size", 0) / (1024**3)
+                    output += f"    - {name} ({size:.1f}GB)\n"
+                output += "\n"
+        else:
+            output += f"✗ {host_name} ({ip}): OFFLINE\n\n"
+
+    if total_running == 0:
+        output += "No models currently running\n"
+    else:
+        output = f"Total running: {total_running} model(s)\n\n" + output
+
+    return output
+
+
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
+def reload_inventory() -> str:
+    """Reload Ollama endpoints from Ansible inventory (useful after inventory changes)"""
+    global _endpoints_cache
+    _endpoints_cache = None
+    endpoints = _load_ollama_endpoints()
+
+    output = "=== INVENTORY RELOADED ===\n\n"
+    output += f"✓ Loaded {len(endpoints)} Ollama endpoint(s)\n\n"
+
+    for host_name, ip in endpoints.items():
+        output += f"  • {host_name} -> {ip}:{OLLAMA_PORT}\n"
+
+    return output
+
+
+# Entry point
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Load endpoints on startup
+    endpoints = _load_ollama_endpoints()
+    logger.info(f"Ollama MCP Server starting with {len(endpoints)} endpoint(s)")
+
+    if not endpoints:
+        logger.error("No Ollama endpoints configured!")
+        logger.error("Please set ANSIBLE_INVENTORY_PATH or OLLAMA_* environment variables")
+
+    # Run with stdio transport by default (backward compatible)
+    mcp.run()
+
+    # Alternative transports (comment/uncomment as needed):
+    # mcp.run(transport="http", host="0.0.0.0", port=8000)
+    # mcp.run(transport="sse", host="0.0.0.0", port=8000)

@@ -4,9 +4,11 @@
 
 **Repository:** <https://github.com/bjeans/homelab-mcp>
 **Docker Hub:** <https://hub.docker.com/r/bjeans/homelab-mcp>
-**Version:** 2.1.0 (Released: 2025-11-19)
+**Version:** 3.0.0 (Released: 2026-01-14)
 **License:** MIT
 **Purpose:** Open-source MCP servers for homelab infrastructure management through Claude Desktop
+
+**⚠️ Breaking Changes in v3.0:** See [MIGRATION_V3.md](MIGRATION_V3.md) for upgrade guide.
 
 This project provides real-time monitoring and control of homelab infrastructure through 7 specialized MCP servers, including Docker/Podman containers, Ollama AI models, Pi-hole DNS, Unifi networks, UPS monitoring, and Ansible inventory management via the Model Context Protocol.
 
@@ -83,211 +85,335 @@ homelab-mcp/
 
 ## Architecture Patterns
 
-### The Dual-Mode MCP Server Pattern
+### FastMCP Decorator Pattern (v3.0+)
 
-All servers follow this unified architecture supporting both **standalone** and **unified mode** operation:
+All servers use **FastMCP's decorator pattern** for simple, pythonic tool definitions. No classes or boilerplate needed!
 
-#### 1. Class-Based Implementation
-
-```python
-class UpsMCPServer:
-    """Service-specific MCP server with shared inventory support"""
-
-    def __init__(self, ansible_inventory=None):
-        """Initialize with optional pre-loaded inventory (for unified mode)
-
-        Args:
-            ansible_inventory: Pre-loaded inventory dict from unified server
-                             If None, will load from file at runtime
-        """
-        self.ansible_inventory = ansible_inventory
-        self.inventory_data = None
-
-    async def list_tools(self) -> list[types.Tool]:
-        """Return tools with SERVICE_ prefix (e.g., ups_get_status)
-
-        Prefix ensures no collisions when combined in unified server
-        """
-        return [
-            types.Tool(
-                name="ups_get_ups_status",
-                description="...",
-                inputSchema={"type": "object", "properties": {}},
-            ),
-            # ... more tools
-        ]
-
-    async def handle_tool(self, tool_name: str, arguments: dict) -> list[types.TextContent]:
-        """Route tool calls to shared implementation
-        
-        Strips prefix and delegates to handle_call_tool_impl()
-        """
-        name = tool_name.replace("ups_", "", 1) if tool_name.startswith("ups_") else tool_name
-        return await handle_call_tool_impl(name, arguments, self._load_inventory())
-    
-    def _load_inventory(self):
-        """Load inventory: use pre-loaded (unified) or file (standalone)"""
-        if self.inventory_data is not None:
-            return self.inventory_data
-        # Load from file using AnsibleConfigManager
-        ...
-```
-
-#### 2. Shared Implementation Function
+#### 1. Basic MCP Server Structure
 
 ```python
-async def handle_call_tool_impl(name: str, arguments: dict, inventory: dict) -> list[types.TextContent]:
-    """Core tool execution logic - shared by both class and module handlers
-    
-    This function contains ALL tool implementations. It's called by:
-    - Class method: handle_tool() for unified mode
-    - Module handler: handle_call_tool() for standalone mode
-    
-    Key benefit: Single source of truth for all business logic
-    """
-    try:
-        if name == "get_ups_status":
-            # Implementation here
-            ...
-        elif name == "get_ups_details":
-            # Implementation here
-            ...
-    except Exception as e:
-        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-```
+#!/usr/bin/env python3
+"""
+UPS MCP Server v3.0 (FastMCP)
+Provides UPS monitoring via NUT (Network UPS Tools)
+"""
 
-#### 3. Module-Level Handlers (Standalone Mode)
-
-```python
-@server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    """For standalone mode: tools WITHOUT prefix"""
-    return [
-        types.Tool(name="get_ups_status", ...),    # No "ups_" prefix
-        types.Tool(name="get_ups_details", ...),
-        # ...
-    ]
-
-@server.call_tool()
-async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-    """For standalone mode: delegate to shared implementation"""
-    inventory = load_ansible_inventory_global()  # Use global cache
-    return await handle_call_tool_impl(name, arguments, inventory)
-```
-
-#### 4. Unified Server Integration
-
-```python
-# In homelab_unified_mcp.py
-
-from ups_mcp_server import UpsMCPServer
-
-class UnifiedHomelabServer:
-    def __init__(self):
-        # Load Ansible inventory ONCE for all servers
-        shared_inventory = load_shared_ansible_inventory()
-        
-        # Instantiate all servers with shared inventory
-        self.ups = UpsMCPServer(ansible_inventory=shared_inventory)
-        self.pihole = PiholeMCPServer(ansible_inventory=shared_inventory)
-        self.docker = DockerMCPServer(ansible_inventory=shared_inventory)
-        # ... etc
-    
-    async def handle_list_tools(self):
-        """Combine tools from all servers"""
-        tools = []
-        tools.extend(await self.ups.list_tools())      # Has ups_ prefix
-        tools.extend(await self.pihole.list_tools())   # Has pihole_ prefix
-        # ... etc
-        return tools
-    
-    async def handle_call_tool(self, name: str, arguments: dict):
-        """Route prefixed tool calls to correct server"""
-        if name.startswith("ups_"):
-            return await self.ups.handle_tool(name, arguments)
-        elif name.startswith("pihole_"):
-            return await self.pihole.handle_tool(name, arguments)
-        # ... etc
-```
-
-### Why This Pattern?
-
-✅ **Unified Mode Benefits:**
-- Single shared inventory file read (not 7 separate reads)
-- No file locking conflicts
-- Consistent configuration across all servers
-- Cleaner namespace with prefixes
-
-✅ **Standalone Mode Benefits:**
-- Server works independently
-- Tools have clean names (no prefix)
-- Useful for debugging specific service
-- Can be deployed alone
-
-✅ **Development Benefits:**
-- Core logic tested independently of MCP framework
-- Easy to add new servers (copy pattern)
-- Clear separation of concerns
-- Predictable behavior
-
-### MCP Server Pattern (Essential Structure)
-
-```python
-# Standard structure all servers follow
-
-import asyncio
 import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
 
-import mcp.server.stdio
-import mcp.types as types
-from mcp.server import Server
+from fastmcp import FastMCP
+from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 
-# Setup
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
-server = Server("service-name")
+# Initialize FastMCP server
+mcp = FastMCP("UPS Monitor")
 
-# Configuration loading
+# Load environment variables
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / ".env"
 
 # Only load .env if NOT in unified mode (to avoid duplicate loading)
 if not os.getenv("MCP_UNIFIED_MODE"):
-    from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
-    load_env_file(ENV_FILE, allowed_vars={"SERVICE_*"}, strict=True)
+    load_env_file(ENV_FILE, allowed_vars={"UPS_*", "NUT_*"}, strict=True)
 
-# Service-specific code here
+# Configuration
+ANSIBLE_INVENTORY_PATH = os.getenv("ANSIBLE_INVENTORY_PATH", "")
+logger.info(f"Ansible inventory: {ANSIBLE_INVENTORY_PATH}")
 
-# Class implementation for unified mode
-class ServiceMCPServer:
-    def __init__(self, ansible_inventory=None):
+# Service-specific helper functions
+def _load_ups_hosts():
+    """Load UPS hosts from Ansible inventory"""
+    # Lazy import - only load Ansible when needed (avoids FastMCP import hook conflict)
+    from ansible_config_manager import AnsibleConfigManager
+
+    # Implementation here
+    ...
+```
+
+#### 2. Adding Tools with @mcp.tool() Decorator
+
+```python
+# Simple tool - no parameters
+@mcp.tool()
+def ups_get_status() -> str:
+    """Get UPS status from all configured NUT servers"""
+    ups_hosts = _load_ups_hosts()
+
+    if not ups_hosts:
+        return "No UPS hosts configured"
+
+    output = "=== UPS STATUS ===\n\n"
+    for host, config in ups_hosts.items():
+        # Query UPS status
         ...
+    return output
 
-# Shared implementation
-async def handle_call_tool_impl(name: str, arguments: dict, inventory: dict):
+
+# Tool with parameters and type hints
+@mcp.tool()
+def ups_get_details(host: str, ups_name: str = "") -> str:
+    """
+    Get detailed UPS information from specific NUT server
+
+    Args:
+        host: Hostname of the NUT server to query
+        ups_name: Optional specific UPS name (default: first UPS on host)
+    """
+    ups_hosts = _load_ups_hosts()
+
+    if host not in ups_hosts:
+        return f"Unknown host: {host}"
+
+    # Query UPS details
+    ...
+    return output
+
+
+# Async tool
+@mcp.tool()
+async def ups_query_battery_health(threshold: int = 80) -> str:
+    """
+    Query battery health across all UPS devices
+
+    Args:
+        threshold: Minimum acceptable battery charge % (default: 80)
+    """
+    ups_hosts = _load_ups_hosts()
+
+    results = []
+    for host in ups_hosts:
+        result = await _async_query_ups(host)
+        results.append(result)
+
+    return format_results(results)
+
+
+# Run server
+if __name__ == "__main__":
+    mcp.run()
+```
+
+**Key Points:**
+- ✅ Use `@mcp.tool()` decorator on any function
+- ✅ Type hints automatically generate MCP schemas
+- ✅ Docstrings become tool descriptions
+- ✅ Both sync and async functions supported
+- ✅ No manual schema definitions needed
+
+#### 2a. Tool Annotations (MCP Behavioral Hints)
+
+All tools should include `ToolAnnotations` to provide behavioral hints to MCP clients. These hints help Claude and other MCP clients make informed decisions about tool usage.
+
+```python
+from mcp import types
+
+@mcp.tool(
+    title="Get UPS Status",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,           # Tool doesn't modify state
+        destructiveHint=False,        # Tool won't delete/destroy data
+        idempotentHint=False,         # Results may vary over time (runtime status)
+        openWorldHint=True,           # Interacts with external systems
+    )
+)
+async def get_status() -> str:
+    """Get status of all UPS devices across all NUT servers"""
+    # Implementation
+    ...
+```
+
+**Annotation Semantics:**
+
+| Hint | Purpose | When to Use |
+|------|---------|-------------|
+| `readOnlyHint` | Tool only reads data, never modifies | ✅ All monitoring operations<br>❌ Any mutating operations |
+| `destructiveHint` | Tool may delete/destroy data | ❌ All homelab-mcp tools (monitoring only)<br>✅ Would be True for delete/destroy operations |
+| `idempotentHint` | Same inputs → same outputs | ✅ Inventory queries (stable data)<br>❌ Runtime status (time-varying data) |
+| `openWorldHint` | Interacts with external systems | ✅ All tools (query external services)<br>❌ Pure computation tools |
+
+**Examples by Tool Type:**
+
+```python
+# Inventory/Config Query (idempotent - stable data)
+@mcp.tool(
+    title="List All Hosts",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,      # ✅ Inventory data doesn't change often
+        openWorldHint=True,
+    )
+)
+def list_all_hosts() -> str:
+    """Get list of hosts from Ansible inventory"""
     ...
 
-# Module handlers for standalone mode
-@server.list_tools()
-async def handle_list_tools():
+# Runtime Status Query (non-idempotent - time-varying)
+@mcp.tool(
+    title="Get Container Stats",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,     # ✅ CPU/memory stats change constantly
+        openWorldHint=True,
+    )
+)
+async def get_stats(hostname: str) -> str:
+    """Get real-time CPU/memory stats for containers"""
     ...
 
-@server.call_tool()
-async def handle_call_tool(name: str, arguments: dict):
+# Configuration Reload (non-idempotent - invalidates cache)
+@mcp.tool(
+    title="Reload Inventory",
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,     # ✅ Side effect: clears cache
+        openWorldHint=True,
+    )
+)
+def reload_inventory() -> str:
+    """Reload inventory from disk"""
     ...
+```
 
-async def main():
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, ...)
+**Why Annotations Matter:**
+- 🎯 **Tool Selection** - Claude knows which tools are safe to use
+- 🔄 **Retry Logic** - Idempotent tools can be safely retried on failure
+- 🛡️ **Safety** - Destructive operations require extra confirmation
+- 🌍 **Context** - Open world hints indicate external dependencies
+
+**All 39 tools** across 7 servers in homelab-mcp include proper annotations.
+
+#### 3. Unified Server Composition
+
+The unified server uses **FastMCP's native composition** - no manual wrapper functions needed!
+
+```python
+#!/usr/bin/env python3
+"""
+Homelab Unified MCP Server v3.0 (FastMCP)
+Combines all 7 sub-servers using FastMCP's native composition
+"""
+
+import logging
+import os
+from pathlib import Path
+
+from fastmcp import FastMCP
+from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
+
+logging.basicConfig(level=logging.INFO, stream=sys.stderr)
+logger = logging.getLogger(__name__)
+
+# Initialize unified server
+mcp = FastMCP("Homelab Unified")
+
+# Load environment once for all servers
+load_env_file(ENV_FILE, allowed_vars=UNIFIED_ALLOWED_VARS, strict=True)
+os.environ["MCP_UNIFIED_MODE"] = "1"
+
+
+def compose_servers():
+    """Compose all sub-servers into unified server"""
+    # Import sub-servers (each has its own mcp instance with decorated tools)
+    # Note: Sub-servers use lazy imports for Ansible, so order doesn't matter
+    import ansible_mcp_server
+    import docker_mcp_podman
+    import ups_mcp_server
+    # ... etc
+
+    # Collect sub-servers
+    subservers = {
+        'ansible': ansible_mcp_server.mcp,
+        'docker': docker_mcp_podman.mcp,
+        'ups': ups_mcp_server.mcp,
+        # ... etc
+    }
+
+    # Compose tools from all sub-servers
+    for server_name, server_mcp in subservers.items():
+        # Access FastMCP's internal tool manager
+        if hasattr(server_mcp, '_tool_manager'):
+            tools = server_mcp._tool_manager._tools
+            for tool_name, tool in tools.items():
+                # Add tool directly - FastMCP handles registration
+                mcp.add_tool(tool)
+            logger.info(f"Added {len(tools)} {server_name} tools")
+
+    logger.info("All sub-servers composed successfully")
+
+
+# Compose at module import time
+compose_servers()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    mcp.run()
 ```
+
+**Key Benefits:**
+- ✅ Only **~105 lines** vs 500+ with manual wrappers
+- ✅ No parameter duplication or signature mismatches
+- ✅ FastMCP handles tool registration automatically
+- ✅ Each sub-server works standalone or in unified mode
+- ✅ Single source of truth for each tool
+
+### Why FastMCP?
+
+**Advantages over Standard MCP SDK:**
+
+| Feature | Standard MCP SDK | FastMCP |
+|---------|-----------------|---------|
+| **Code Volume** | Manual schema definitions | 38% reduction |
+| **Type Safety** | Manual schema validation | Automatic from type hints |
+| **Tool Definition** | Class methods + decorators | Single `@mcp.tool()` decorator |
+| **Async Support** | Manual async handling | Native async/await support |
+| **Transports** | stdio only (default) | stdio, HTTP, SSE |
+| **Composition** | Manual wrapper functions | Native `add_tool()` method |
+| **Maintenance** | High (duplicate schemas) | Low (single source of truth) |
+
+**Development Speed:**
+- Standard SDK: ~100 lines per tool (class + schema + handler)
+- FastMCP: ~10-20 lines per tool (decorator + implementation)
+
+### Lazy Import Pattern (v3.0+)
+
+All servers use **lazy imports** for Ansible to avoid import hook conflicts with FastMCP:
+
+```python
+from fastmcp import FastMCP  # FastMCP imported at module level
+
+def _load_config():
+    # Ansible imported lazily when function is first called
+    from ansible_config_manager import AnsibleConfigManager
+    manager = AnsibleConfigManager(...)
+```
+
+**Why This Works:**
+- At module import time: Only FastMCP is imported
+- At runtime (first tool call): Ansible is imported inside the function
+- No import hook conflict because they never execute at the same time
+- Caching ensures Ansible is only imported once per process
+
+**Benefits:**
+- ✅ Import order is flexible - no more CRITICAL warnings
+- ✅ `uvx fastmcp inspect` works correctly on all servers
+- ✅ Code feels less fragile and more maintainable
+- ✅ All Ansible functionality preserved (nested groups, variable inheritance)
+- ✅ Caching behavior unchanged - performance identical after first load
+
+**Where Applied:**
+- `docker_mcp_podman.py` - `_load_container_hosts()`
+- `ping_mcp_server.py` - `_load_inventory()`
+- `ups_mcp_server.py` - `_load_inventory()`
+- `pihole_mcp.py` - `_load_pihole_hosts()`
+- `ollama_mcp.py` - `_load_ollama_endpoints()`
+- `homelab_unified_mcp.py` - No Ansible import needed (sub-servers handle it)
 
 ### Configuration Hierarchy
 
@@ -759,6 +885,35 @@ python ups_mcp_server.py
 python homelab_unified_mcp.py
 ```
 
+#### 4. FastMCP Inspection (Validation Check)
+
+Use `fastmcp inspect` to validate server configuration without starting the full MCP server. This catches import errors, missing dependencies, and tool registration issues.
+
+```bash
+# Simplest: Use fastmcp.json config (reads from requirements.txt automatically)
+./venv/bin/fastmcp inspect
+
+# With existing venv (skips uv environment setup)
+./venv/bin/fastmcp inspect --skip-env
+
+# Expected output:
+# Server
+#   Name:         Homelab Unified
+#   Tools:        29          ← Should show all tools registered
+#   ...
+
+# Validate individual servers directly
+./venv/bin/fastmcp inspect pihole_mcp.py:mcp      # Tools: 6
+./venv/bin/fastmcp inspect ollama_mcp.py:mcp      # Tools: 5
+./venv/bin/fastmcp inspect ups_mcp_server.py:mcp  # Tools: 5
+./venv/bin/fastmcp inspect ping_mcp_server.py:mcp # Tools: 6
+./venv/bin/fastmcp inspect docker_mcp_podman.py:mcp # Tools: 6
+```
+
+**When to use:** Run after any changes to server files, imports, or tool definitions. If inspection fails, the server won't work in Claude Desktop either.
+
+**Note:** The `fastmcp.json` config file defines the unified server as the default entry point. Use `--skip-env` when running from an activated venv to avoid reinstalling dependencies.
+
 ### Security Testing
 
 ```bash
@@ -1007,6 +1162,9 @@ python pre_publish_check.py                   # Run security checks before commi
 python {service}_mcp_server.py               # Test specific server standalone
 python homelab_unified_mcp.py                # Run unified server
 
+# Validation (run after code changes)
+./venv/bin/fastmcp inspect --skip-env                  # Should show Tools: 29
+
 # Git workflow (ALWAYS use feature branches, NEVER commit to main)
 git checkout main && git pull origin main     # Start from updated main
 git checkout -b feature/my-feature            # Create feature branch
@@ -1036,5 +1194,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and best prac
 
 **Remember:** This project manages critical infrastructure. Security and reliability are paramount. Always test thoroughly and never commit sensitive data.
 
-**Last Updated:** January 7, 2026
-**Current Version:** 2.2.1 (Security update - dependency vulnerability fixes)
+**Last Updated:** January 14, 2026
+**Current Version:** 3.0.0 (FastMCP refactor with lazy imports)

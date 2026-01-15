@@ -5,23 +5,96 @@ Properly integrates with Ansible's inventory and variable resolution system
 
 This module eliminates manual YAML parsing and hostname duplication by using
 the official Ansible Python library.
+
+Note: Ansible imports are deferred (lazy loaded) to avoid conflicts with FastMCP's
+import hooks. The _import_ansible() function handles this safely.
 """
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# Import Ansible inventory management
-try:
-    from ansible.inventory.manager import InventoryManager
-    from ansible.parsing.dataloader import DataLoader
-    from ansible.vars.manager import VariableManager
-    ANSIBLE_AVAILABLE = True
-except ImportError:
-    ANSIBLE_AVAILABLE = False
-
 logger = logging.getLogger(__name__)
+
+# Lazy-loaded Ansible modules (populated by _import_ansible())
+_InventoryManager = None
+_DataLoader = None
+_VariableManager = None
+_ANSIBLE_IMPORT_ATTEMPTED = False
+
+
+def _import_ansible() -> bool:
+    """
+    Safely import Ansible modules, handling FastMCP import hook conflicts.
+
+    FastMCP adds a second FileFinder path hook to sys.path_hooks which conflicts
+    with Ansible's collection loader (which expects exactly one). This function
+    temporarily removes extra FileFinder hooks during import.
+
+    Ansible's detection method (from _collection_finder.py):
+        [ph for ph in sys.path_hooks if 'FileFinder' in repr(ph)]
+
+    Returns:
+        True if Ansible was successfully imported, False otherwise
+    """
+    global _InventoryManager, _DataLoader, _VariableManager, _ANSIBLE_IMPORT_ATTEMPTED
+
+    # Only attempt import once
+    if _ANSIBLE_IMPORT_ATTEMPTED:
+        return _InventoryManager is not None
+
+    _ANSIBLE_IMPORT_ATTEMPTED = True
+
+    # Find FileFinder path hooks using Ansible's detection method
+    file_finder_hooks = [(i, ph) for i, ph in enumerate(sys.path_hooks)
+                         if 'FileFinder' in repr(ph)]
+
+    removed_hooks = []
+
+    try:
+        # If there are 2+ FileFinder hooks, temporarily remove extras (keep only the first)
+        if len(file_finder_hooks) > 1:
+            # Remove hooks in reverse order to maintain correct indices
+            for i, ph in reversed(file_finder_hooks[1:]):
+                sys.path_hooks.pop(i)
+                removed_hooks.append((i, ph))
+            # Clear the path_importer_cache to force re-evaluation with new hooks
+            sys.path_importer_cache.clear()
+            logger.debug(f"Temporarily removed {len(removed_hooks)} extra FileFinder hook(s) for Ansible import")
+
+        # Now import Ansible
+        from ansible.inventory.manager import InventoryManager
+        from ansible.parsing.dataloader import DataLoader
+        from ansible.vars.manager import VariableManager
+
+        _InventoryManager = InventoryManager
+        _DataLoader = DataLoader
+        _VariableManager = VariableManager
+
+        logger.debug("Ansible modules imported successfully")
+        return True
+
+    except ImportError as e:
+        logger.warning(f"Ansible not available: {e}. Install with: pip install ansible")
+        return False
+    except Exception as e:
+        logger.error(f"Error importing Ansible: {e}")
+        return False
+    finally:
+        # Restore the removed FileFinder hooks in original order
+        for i, ph in reversed(removed_hooks):
+            sys.path_hooks.insert(i, ph)
+        if removed_hooks:
+            # Clear cache again after restoring
+            sys.path_importer_cache.clear()
+            logger.debug(f"Restored {len(removed_hooks)} FileFinder hook(s)")
+
+
+def _ansible_available() -> bool:
+    """Check if Ansible modules are available (imports them if not yet attempted)."""
+    return _import_ansible()
 
 
 class AnsibleConfigManager:
@@ -43,7 +116,7 @@ class AnsibleConfigManager:
         self.variable_manager = None
         self._group_cache = {}
 
-        if not ANSIBLE_AVAILABLE:
+        if not _ansible_available():
             logger.warning("Ansible not available. Install with: pip install ansible")
             return
 
@@ -58,16 +131,16 @@ class AnsibleConfigManager:
 
     def _initialize_ansible(self):
         """Initialize Ansible loader, inventory, and variable manager."""
-        if not ANSIBLE_AVAILABLE or not self.inventory_path:
+        if not _ansible_available() or not self.inventory_path:
             return
 
         try:
-            self.loader = DataLoader()
+            self.loader = _DataLoader()
             self.loader.set_basedir(str(Path(self.inventory_path).parent))
-            self.inventory = InventoryManager(
+            self.inventory = _InventoryManager(
                 loader=self.loader, sources=self.inventory_path
             )
-            self.variable_manager = VariableManager(
+            self.variable_manager = _VariableManager(
                 loader=self.loader, inventory=self.inventory
             )
 
@@ -81,7 +154,7 @@ class AnsibleConfigManager:
 
     def is_available(self) -> bool:
         """Check if Ansible inventory is properly initialized."""
-        return ANSIBLE_AVAILABLE and self.inventory is not None
+        return _ansible_available() and self.inventory is not None
 
     def get_group_hosts(
         self,
@@ -549,7 +622,7 @@ def load_group_hosts(
             logger_obj.error("No inventory path provided")
         return {}
 
-    if ANSIBLE_AVAILABLE:
+    if _ansible_available():
         manager = AnsibleConfigManager(inventory_path, logger_obj)
         if manager.is_available():
             return manager.get_group_hosts(group_name)
@@ -564,5 +637,4 @@ __all__ = [
     "AnsibleConfigManager",
     "load_group_hosts",
     "get_group_hosts_fallback",
-    "ANSIBLE_AVAILABLE",
 ]

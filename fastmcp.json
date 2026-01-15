@@ -1,0 +1,11 @@
+{
+  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
+  "source": {
+    "type": "filesystem",
+    "path": "homelab_unified_mcp.py",
+    "entrypoint": "mcp"
+  },
+  "environment": {
+    "requirements": "requirements.txt"
+  }
+}

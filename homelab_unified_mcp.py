@@ -1,30 +1,25 @@
 #!/usr/bin/env python3
 """
-Homelab Unified MCP Server
+Homelab Unified MCP Server v2.3 (FastMCP)
 Unified server that combines all homelab MCP servers into a single entry point
-Exposes all tools from docker, ping, ollama, pihole, and unifi servers with namespaced names
+Uses FastMCP's native composition pattern - no manual wrappers needed
 """
 
-import asyncio
-import json
 import logging
 import os
 import sys
-from collections import defaultdict
 from pathlib import Path
+
+from fastmcp import FastMCP
+from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
-import mcp.server.stdio
-import mcp.types as types
-from mcp.server import NotificationOptions, Server
-from mcp.server.models import InitializationOptions
-from pydantic import AnyUrl
+# Initialize FastMCP unified server
+mcp = FastMCP("Homelab Unified")
 
 # Load all environment variables ONCE before importing sub-servers
-from mcp_config_loader import load_env_file, COMMON_ALLOWED_ENV_VARS
-
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / ".env"
 
@@ -47,311 +42,59 @@ load_env_file(ENV_FILE, allowed_vars=UNIFIED_ALLOWED_VARS, strict=True)
 # Set flag to skip individual server env loading
 os.environ["MCP_UNIFIED_MODE"] = "1"
 
-# Import all sub-servers (they will skip load_env_file if MCP_UNIFIED_MODE is set)
-from ansible_mcp_server import AnsibleInventoryMCP
-from docker_mcp_podman import DockerMCPServer
-from ping_mcp_server import PingMCPServer
-from ollama_mcp import OllamaMCPServer
-from pihole_mcp import PiholeMCPServer
-from unifi_mcp_optimized import UnifiMCPServer
-from ups_mcp_server import UpsMCPServer
-
-# Import AnsibleConfigManager for enum generation
-from ansible_config_manager import AnsibleConfigManager
-
-# Import yaml for loading Ansible inventory
-import yaml
+logger.info("Starting Unified Homelab MCP Server...")
 
 
-def load_shared_ansible_inventory():
+def compose_servers():
+    """Compose all sub-servers into unified server using FastMCP's native pattern
+
+    This function runs at module import time to register all tools from sub-servers.
+    FastMCP's add_tool() method properly handles tool registration without manual wrappers.
     """
-    Load Ansible inventory once for all servers to avoid file locking issues.
-    Returns the raw inventory dict or None if not found/error.
-    """
-    ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
+    # Import sub-servers (they each have their own mcp instance with decorated tools)
+    import ansible_mcp_server
+    import docker_mcp_podman
+    import ping_mcp_server
+    import ollama_mcp
+    import pihole_mcp
+    import unifi_mcp_optimized
+    import ups_mcp_server
 
-    if not ansible_inventory_path or not Path(ansible_inventory_path).exists():
-        logger.info(f"Ansible inventory not found at: {ansible_inventory_path}")
-        logger.info("Sub-servers will use environment variable fallback")
-        return None
+    logger.info("Composing sub-servers...")
 
-    try:
-        logger.info(f"Loading shared Ansible inventory from: {ansible_inventory_path}")
-        with open(ansible_inventory_path, "r") as f:
-            inventory = yaml.safe_load(f)
-        logger.info("Ansible inventory loaded successfully")
-        return inventory
-    except Exception as e:
-        logger.error(f"Error loading Ansible inventory: {e}")
-        logger.info("Sub-servers will use environment variable fallback")
-        return None
+    # Store references to sub-servers for tool composition
+    # We'll use FastMCP's internal tool registry to get tools from each server
+    subservers = {
+        'ansible': ansible_mcp_server.mcp,
+        'docker': docker_mcp_podman.mcp,
+        'ping': ping_mcp_server.mcp,
+        'ollama': ollama_mcp.mcp,
+        'pihole': pihole_mcp.mcp,
+        'unifi': unifi_mcp_optimized.mcp,
+        'ups': ups_mcp_server.mcp,
+    }
 
-
-class UnifiedHomelabServer:
-    """Unified Homelab MCP Server - Combines all sub-servers"""
-
-    def __init__(self):
-        """Initialize all sub-servers"""
-        logger.info("Initializing Unified Homelab MCP Server...")
-
-        # Create MCP server instance
-        self.app = Server("homelab-unified")
-
-        # Load Ansible inventory ONCE to avoid file locking issues
-        shared_inventory = load_shared_ansible_inventory()
-
-        # Create AnsibleConfigManager for enum generation
-        ansible_inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH", "")
-        ansible_config = None
-        if ansible_inventory_path:
-            ansible_config = AnsibleConfigManager(
-                inventory_path=ansible_inventory_path,
-                logger_obj=logger
-            )
-            if ansible_config.is_available():
-                logger.info("AnsibleConfigManager initialized successfully for enum generation")
-            else:
-                logger.warning("AnsibleConfigManager not available, dynamic enums will be disabled")
-                ansible_config = None
+    # Compose tools from all sub-servers
+    # FastMCP's FunctionTool objects can be directly added to another FastMCP instance
+    for server_name, server_mcp in subservers.items():
+        # Access the internal tools dict (FastMCP stores tools in _tool_manager._tools)
+        # Each tool is already properly registered with its prefix from the sub-server
+        if hasattr(server_mcp, '_tool_manager') and hasattr(server_mcp._tool_manager, '_tools'):
+            tools = server_mcp._tool_manager._tools
+            for tool_name, tool in tools.items():
+                # Add tool directly - FastMCP handles the registration
+                mcp.add_tool(tool)
+            logger.info(f"Added {len(tools)} {server_name} tools")
         else:
-            logger.info("No Ansible inventory path configured, dynamic enums will be disabled")
+            logger.warning(f"Could not find tools in {server_name} server")
 
-        # Initialize all sub-servers with shared inventory and config manager
-        logger.info("Initializing Docker/Podman MCP Server...")
-        self.docker = DockerMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Ping MCP Server...")
-        self.ping = PingMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Ollama MCP Server...")
-        self.ollama = OllamaMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Pi-hole MCP Server...")
-        self.pihole = PiholeMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Unifi MCP Server...")
-        self.unifi = UnifiMCPServer()  # Unifi doesn't use Ansible inventory
-
-        logger.info("Initializing UPS MCP Server...")
-        self.ups = UpsMCPServer(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        logger.info("Initializing Ansible Inventory MCP Server...")
-        self.ansible = AnsibleInventoryMCP(
-            ansible_inventory=shared_inventory,
-            ansible_config=ansible_config
-        )
-
-        # Register handlers
-        self.setup_handlers()
-
-        logger.info("Unified Homelab MCP Server initialized successfully")
-
-    async def get_tool_catalog(self) -> list[types.TextContent]:
-        """
-        Generate a grouped catalog of all tools from unified server.
-        Returns a JSON object (as a string) containing both Markdown for human readability and raw JSON for programmatic use, with both formats embedded as fields.
-        """
-        catalog = await self._generate_tool_catalog()
-        return [types.TextContent(
-            type="text",
-            text=json.dumps(catalog, indent=2)
-        )]
-
-    async def _generate_tool_catalog(self) -> dict:
-        """
-        Generate the tool catalog as a dictionary.
-        Can be used by both tool and resource handlers.
-        Returns dict with 'markdown' and 'json' keys.
-        """
-        # Collect tools from all sub-servers (same pattern as handle_list_tools)
-        all_tools = []
-        all_tools.extend(await self.ansible.list_tools())
-        all_tools.extend(await self.docker.list_tools())
-        all_tools.extend(await self.ping.list_tools())
-        all_tools.extend(await self.ollama.list_tools())
-        all_tools.extend(await self.pihole.list_tools())
-        all_tools.extend(await self.unifi.list_tools())
-        all_tools.extend(await self.ups.list_tools())
-
-        # Add the catalog tool itself for completeness and discoverability
-        all_tools.append(types.Tool(
-            name="homelab_get_tool_catalog",
-            description="Get a grouped catalog of all available Homelab MCP tools, including this catalog tool itself.",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        ))
-        # Group by prefix
-        grouped = defaultdict(list)
-        for tool in all_tools:
-            prefix = tool.name.split("_")[0]
-            grouped[prefix].append({
-                "name": tool.name,
-                "description": tool.description,
-                "schema": tool.inputSchema  # Already a dict, not JSON string
-            })
-
-        # Build markdown
-        md_lines = ["# Homelab MCP Tool Catalog\n"]
-        for category in sorted(grouped.keys()):
-            md_lines.append(f"## {category.capitalize()} Tools\n")
-            for entry in sorted(grouped[category], key=lambda x: x["name"]):
-                md_lines.append(f"### {entry['name']}\n")
-                md_lines.append(f"**Description:** {entry['description']}\n")
-                if entry["schema"] and "properties" in entry["schema"]:
-                    md_lines.append("**Parameters:**")
-                    schema = entry["schema"]
-                    for prop, details in schema.get("properties", {}).items():
-                        req = "required" if prop in schema.get("required", []) else "optional"
-                        md_lines.append(f"- `{prop}` ({req}): {details.get('description', '')}")
-                md_lines.append("")
-
-        # Return both formats
-        return {
-            "markdown": "\n".join(md_lines),
-            "json": dict(grouped)  # Convert defaultdict to regular dict
-        }
-
-    def setup_handlers(self):
-        """Register MCP handlers"""
-
-        @self.app.list_tools()
-        async def handle_list_tools() -> list[types.Tool]:
-            """List all available tools from all sub-servers"""
-            tools = []
-
-            # Get tools from each sub-server
-            tools.extend(await self.ansible.list_tools())
-            tools.extend(await self.docker.list_tools())
-            tools.extend(await self.ping.list_tools())
-            tools.extend(await self.ollama.list_tools())
-            tools.extend(await self.pihole.list_tools())
-            tools.extend(await self.unifi.list_tools())
-            tools.extend(await self.ups.list_tools())
-
-            # Add the catalog tool itself
-            tools.append(types.Tool(
-                name="homelab_get_tool_catalog",
-                description="Lists all available tools grouped by category with descriptions and input schemas",
-                inputSchema={"type": "object", "properties": {}, "required": []},
-                title="Get Tool Catalog",
-                annotations=types.ToolAnnotations(
-                    readOnlyHint=True,
-                    destructiveHint=False,
-                    idempotentHint=True,
-                    openWorldHint=False,
-                )
-            ))
-
-            logger.info(f"Total tools available: {len(tools)}")
-            return tools
-
-        @self.app.call_tool()
-        async def handle_call_tool(
-            name: str, arguments: dict | None
-        ) -> list[types.TextContent]:
-            """Route tool calls to the appropriate sub-server"""
-            logger.info(f"Tool called: {name}")
-
-            try:
-                # Handle catalog tool
-                if name == "homelab_get_tool_catalog":
-                    return await self.get_tool_catalog()
-
-                # Route based on tool name prefix
-                if name.startswith("ansible_"):
-                    return await self.ansible.handle_tool(name, arguments)
-                elif name.startswith("docker_"):
-                    return await self.docker.handle_tool(name, arguments)
-                elif name.startswith("ping_"):
-                    return await self.ping.handle_tool(name, arguments)
-                elif name.startswith("ollama_"):
-                    return await self.ollama.handle_tool(name, arguments)
-                elif name.startswith("pihole_"):
-                    return await self.pihole.handle_tool(name, arguments)
-                elif name.startswith("unifi_"):
-                    return await self.unifi.handle_tool(name, arguments)
-                elif name.startswith("ups_"):
-                    return await self.ups.handle_tool(name, arguments)
-                else:
-                    return [
-                        types.TextContent(
-                            type="text", text=f"Error: Unknown tool '{name}'"
-                        )
-                    ]
-
-            except Exception as e:
-                logger.error(f"Error executing tool {name}: {e}", exc_info=True)
-                return [
-                    types.TextContent(
-                        type="text", text=f"Error executing {name}: {str(e)}"
-                    )
-                ]
-
-        @self.app.list_resources()
-        async def handle_list_resources() -> list[types.Resource]:
-            """List all available resources"""
-            return [
-                types.Resource(
-                    uri="homelab://catalog/tools",
-                    name="tool_catalog",
-                    description="Catalog of all available tools grouped by category with descriptions and input schemas",
-                    mimeType="application/json"
-                )
-            ]
-
-        @self.app.read_resource()
-        async def handle_read_resource(uri: AnyUrl) -> str:
-            """Read resource content"""
-            uri_str = str(uri)
-            logger.info(f"Resource read requested: {uri_str}")
-
-            if uri_str == "homelab://catalog/tools":
-                catalog = await self._generate_tool_catalog()
-                return json.dumps(catalog, indent=2)
-            else:
-                raise ValueError(f"Unknown resource: {uri_str}")
+    logger.info("All sub-servers composed successfully")
 
 
-async def main():
-    """Run the unified MCP server"""
-    logger.info("Starting Unified Homelab MCP Server...")
-
-    # Create unified server
-    server = UnifiedHomelabServer()
-
-    # Run server
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.app.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="homelab-unified",
-                server_version="2.0.0",
-                capabilities=server.app.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
-        )
+# Compose servers at module import time
+compose_servers()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Run the unified server
+    mcp.run()
