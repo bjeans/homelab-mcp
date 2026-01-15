@@ -214,5 +214,5 @@ A: Absolutely! See CONTRIBUTING.md for guidelines. The new FastMCP pattern makes
 ---
 
 **Version:** 3.0.0
-**Date:** January 13, 2026
+**Date:** January 14, 2026
 **Previous Version:** 2.2.1

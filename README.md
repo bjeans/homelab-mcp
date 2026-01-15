@@ -36,7 +36,7 @@ See [SECURITY.md](SECURITY.md) for comprehensive security guidance.
 This project includes several documentation files for different audiences:
 
 - **[README.md](README.md)** (this file) - Installation, setup, and usage guide
-- **[MIGRATION.md](MIGRATION.md)** - Migration guide for v2.0 unified server
+- **[MIGRATION_V3.md](MIGRATION_V3.md)** - Migration guide for v2.0 unified server
 - **[PROJECT_INSTRUCTIONS.md](PROJECT_INSTRUCTIONS.example.md)** - Copy into Claude project instructions for AI context
 - **[CLAUDE.md](CLAUDE.md)** - Developer guide for AI assistants and contributors
 - **[SECURITY.md](SECURITY.md)** - Security policies and best practices
@@ -44,7 +44,7 @@ This project includes several documentation files for different audiences:
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 
 **👥 For End Users:** Follow this README + copy PROJECT_INSTRUCTIONS.md to Claude
-**🔄 Migrating from v1.x?** See [MIGRATION.md](MIGRATION.md) for unified server migration
+**🔄 Migrating from v1.x?** See [MIGRATION_V3.md](MIGRATION_V3.md) for unified server migration
 **🤖 For AI Assistants:** Read [CLAUDE.md](CLAUDE.md) for complete development context
 **🔧 For Contributors:** Start with CONTRIBUTING.md and [CLAUDE.md](CLAUDE.md)
 
@@ -148,7 +148,7 @@ Run each MCP server as a separate process. This mode remains fully supported for
 - ✅ Original tool names (e.g., `get_docker_containers`, `ping_host`)
 - ✅ Backward compatible with v1.x
 
-**Note:** Tool names differ between modes. See [MIGRATION.md](MIGRATION.md) for detailed migration instructions and tool name changes.
+**Note:** Tool names differ between modes. See [MIGRATION_V3.md](MIGRATION_V3.md) for detailed migration instructions and tool name changes.
 
 ---
 
@@ -201,7 +201,7 @@ python homelab_unified_mcp.py
 
 ---
 
-**Migration Guide:** See [MIGRATION.md](MIGRATION.md) for detailed instructions on switching between modes or methods.
+**Migration Guide:** See [MIGRATION_V3.md](MIGRATION_V3.md) for detailed instructions on switching between modes or methods.
 
 ---
 
@@ -463,7 +463,7 @@ Separate entry for each server:
 }
 ```
 
-**Note:** Tool names differ between modes. See [MIGRATION.md](MIGRATION.md) for details. The deprecated mcp-registry-inspector has been removed from this example. Ansible MCP server integration is tracked in [#39](https://github.com/bjeans/homelab-mcp/issues/39).
+**Note:** Tool names differ between modes. See [MIGRATION_V3.md](MIGRATION_V3.md) for details. The deprecated mcp-registry-inspector has been removed from this example. Ansible MCP server integration is tracked in [#39](https://github.com/bjeans/homelab-mcp/issues/39).
 
 ### 6. Restart Claude Desktop
 
@@ -1395,7 +1395,7 @@ Homelab-MCP/
 │   ├── SECURITY.md                # Security guidelines
 │   ├── CONTRIBUTING.md            # Contribution guide
 │   ├── CHANGELOG.md               # Version history
-│   ├── MIGRATION.md               # Version migration guide
+│   ├── MIGRATION_V3.md               # Version migration guide
 │   ├── CONTEXT_AWARE_SECURITY.md  # Security scanning docs
 │   ├── CI_CD_CHECKS.md            # CI/CD automation docs
 │   └── LICENSE                    # MIT License
