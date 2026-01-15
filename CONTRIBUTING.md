@@ -112,8 +112,11 @@ npx @modelcontextprotocol/inspector uv --directory . run ansible_mcp_server.py
 # Test Unifi MCP server
 npx @modelcontextprotocol/inspector uv --directory . run unifi_mcp_optimized.py
 
-# Test MCP Registry Inspector
-npx @modelcontextprotocol/inspector uv --directory . run mcp_registry_inspector.py
+# Test UPS MCP server
+npx @modelcontextprotocol/inspector uv --directory . run ups_mcp_server.py
+
+# Test Ping MCP server
+npx @modelcontextprotocol/inspector uv --directory . run ping_mcp_server.py
 ```
 
 **What the MCP Inspector does:**
@@ -156,14 +159,243 @@ python helpers/run_checks.py
 
 ### Adding a New MCP Server
 
-1. Create the server file (e.g., `my_service_mcp.py`)
-2. Follow the existing pattern from other servers
-3. Add configuration to `.env.example`
-4. Update `README.md` with server documentation
-5. Update `PROJECT_INSTRUCTIONS.example.md`
-6. Update `CLAUDE.example.md` if adding AI development context
-7. Add security notes if the service uses API keys
-8. Test thoroughly
+See [CLAUDE.md - Architecture Patterns](CLAUDE.md#architecture-patterns) first to understand FastMCP decorator pattern.
+
+#### Decision Tree
+
+Ask yourself these questions:
+
+1. **Is this a new service/tool?**
+   - YES → Create new `{service}_mcp.py`
+   - NO → Extend existing server (add new tool)
+
+2. **Does it need Ansible inventory configuration?**
+   - YES → Add host group to `ansible_hosts.yml` (e.g., `minio_servers:`)
+   - NO → Use .env variables only
+
+3. **Does it need real-time monitoring?**
+   - YES → Implement async queries
+   - NO → Query on-demand only
+
+#### Step-by-Step Guide (FastMCP v3.0+)
+
+**Step 1: Copy Template**
+Use an existing server as template (e.g., `pihole_mcp.py` for API calls, `ansible_mcp_server.py` for inventory):
+```bash
+cp pihole_mcp.py minio_mcp.py
+```
+
+**Step 2: Initialize FastMCP Server**
+```python
+#!/usr/bin/env python3
+"""
+Minio MCP Server v3.0 (FastMCP)
+Provides Minio object storage monitoring
+"""
+
+import logging
+import os
+import sys
+from pathlib import Path
+
+from fastmcp import FastMCP
+from mcp import types
+from mcp_config_loader import load_env_file
+
+logging.basicConfig(level=logging.INFO, stream=sys.stderr)
+logger = logging.getLogger(__name__)
+
+# Initialize FastMCP server
+mcp = FastMCP("Minio Monitor")
+
+# Load environment variables
+SCRIPT_DIR = Path(__file__).parent
+ENV_FILE = SCRIPT_DIR / ".env"
+
+if not os.getenv("MCP_UNIFIED_MODE"):
+    load_env_file(ENV_FILE, allowed_vars={"MINIO_*"}, strict=True)
+```
+
+**Step 3: Add Lazy Import Helper**
+```python
+def _load_minio_endpoints():
+    """Load Minio endpoints from Ansible inventory"""
+    # Lazy import - only load Ansible when needed
+    from ansible_config_manager import AnsibleConfigManager
+
+    inventory_path = os.getenv("ANSIBLE_INVENTORY_PATH")
+    if not inventory_path:
+        return {}
+
+    manager = AnsibleConfigManager(inventory_path)
+    inventory = manager.get_inventory()
+    return inventory.get("minio_servers", {})
+```
+
+**Step 4: Define Tools with Decorators**
+```python
+@mcp.tool(
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=False,  # Bucket stats change over time
+        openWorldHint=True,
+    )
+)
+async def list_buckets(endpoint: str = "") -> str:
+    """
+    List all buckets on Minio server
+
+    Args:
+        endpoint: Optional specific endpoint (default: all endpoints)
+    """
+    minio_endpoints = _load_minio_endpoints()
+
+    if not minio_endpoints:
+        return "No Minio endpoints configured"
+
+    results = []
+    for ep_name, ep_config in minio_endpoints.items():
+        if endpoint and ep_name != endpoint:
+            continue
+
+        # Query Minio API
+        buckets = await _query_minio_buckets(ep_config)
+        results.append(f"Endpoint: {ep_name}\nBuckets: {buckets}")
+
+    return "\n\n".join(results)
+
+
+@mcp.tool(
+    annotations=types.ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,  # Bucket configuration is stable
+        openWorldHint=True,
+    )
+)
+def get_bucket_info(bucket_name: str, endpoint: str = "") -> str:
+    """
+    Get detailed information about a specific bucket
+
+    Args:
+        bucket_name: Name of the bucket
+        endpoint: Optional specific endpoint
+    """
+    # Implementation
+    ...
+
+
+# Run server
+if __name__ == "__main__":
+    mcp.run()
+```
+
+**Step 5: Add Ansible Host Group**
+In `ansible_hosts.example.yml`:
+```yaml
+minio_servers:
+  minio-1:
+    ansible_host: 192.0.2.10
+    minio_endpoint: "http://192.0.2.10:9000"
+    minio_access_key: "{{ vault_minio_access_key }}"
+    minio_secret_key: "{{ vault_minio_secret_key }}"
+```
+
+**Step 6: Add Environment Variables**
+In `.env.example`:
+```bash
+# Minio configuration (fallback if not in Ansible inventory)
+MINIO_ENDPOINT=http://minio-1:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+```
+
+**Step 7: Update Unified Server**
+The unified server automatically discovers tools via FastMCP composition. Add your server to `homelab_unified_mcp.py`:
+
+```python
+def compose_servers():
+    """Compose all sub-servers into unified server"""
+    import ansible_mcp_server
+    import docker_mcp_podman
+    import minio_mcp  # Add your new server
+    import ollama_mcp
+    import pihole_mcp
+    import ping_mcp_server
+    import unifi_mcp_optimized
+    import ups_mcp_server
+
+    subservers = {
+        'ansible': ansible_mcp_server.mcp,
+        'docker': docker_mcp_podman.mcp,
+        'minio': minio_mcp.mcp,  # Add here
+        # ... etc
+    }
+    # FastMCP handles tool registration automatically
+    ...
+```
+
+**Step 8: Update Dockerfile**
+Add your new server file to `Dockerfile`:
+```dockerfile
+# Add new server file
+COPY --chown=mcpuser:mcpuser minio_mcp.py .
+```
+
+**Step 9: Update Documentation**
+- Add to README.md with example commands
+- Add environment variables to PROJECT_INSTRUCTIONS.example.md
+- Update CHANGELOG.md with version notes
+- Add host group to ansible_hosts.example.yml
+
+**Step 10: Test**
+```bash
+# Test standalone mode
+python minio_mcp.py
+
+# Test unified mode
+python homelab_unified_mcp.py
+
+# Validate with FastMCP inspector
+./venv/bin/fastmcp inspect minio_mcp.py:mcp --skip-env
+
+# Run security checks
+python helpers/pre_publish_check.py
+
+# Test Docker build
+docker build -t homelab-mcp:test .
+docker run --rm homelab-mcp:test python -c "import minio_mcp"
+```
+
+#### Key Patterns for v3.0+
+
+**Tool Annotations:**
+- `readOnlyHint=True` - All homelab-mcp tools (monitoring only)
+- `destructiveHint=False` - All homelab-mcp tools
+- `idempotentHint=True` - For stable config queries (inventory, settings)
+- `idempotentHint=False` - For time-varying data (stats, status)
+- `openWorldHint=True` - All tools (interact with external systems)
+
+**Lazy Imports:**
+Always import Ansible inside functions, not at module level:
+```python
+# ✅ CORRECT
+def _load_config():
+    from ansible_config_manager import AnsibleConfigManager
+    # Use it here
+
+# ❌ WRONG - causes FastMCP import hook conflict
+from ansible_config_manager import AnsibleConfigManager
+```
+
+**Unified Mode Detection:**
+```python
+if not os.getenv("MCP_UNIFIED_MODE"):
+    load_env_file(ENV_FILE, ...)
+```
+
+This prevents duplicate env loading when running in unified server.
 
 ### Code Style
 

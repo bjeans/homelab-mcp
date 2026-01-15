@@ -2,7 +2,7 @@
 
 This guide covers deploying the Homelab MCP servers using Docker containers.
 
-**Version 2.1.0:** The Docker image defaults to unified mode (all 7 servers in one container) with automatic mode detection and dynamic enum generation for tool parameters. The image is marketplace-ready and fully configurable via environment variables with no external dependencies. See [Configuration Methods](#configuration-methods) below.
+**Version 3.0.0:** The Docker image defaults to unified mode (all 7 servers in one container) with FastMCP decorator pattern for simplified tool definitions. The image is marketplace-ready and fully configurable via environment variables with no external dependencies. See [Configuration Methods](#configuration-methods) below.
 
 **Docker Hub:** Pre-built images available at https://hub.docker.com/r/bjeans/homelab-mcp/tags
 
