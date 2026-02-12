@@ -142,6 +142,8 @@ async def fetch_unifi_data():
             UNIFI_HOST,
             "--api-key",
             UNIFI_API_KEY,
+            "--site",
+            UNIFI_SITE,
             "--format",
             "json",
             "--output-dir",
