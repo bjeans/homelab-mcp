@@ -44,6 +44,7 @@ ENV_FILE = SCRIPT_DIR / ".env"
 UNIFI_ALLOWED_VARS = COMMON_ALLOWED_ENV_VARS | {
     "UNIFI_HOST",
     "UNIFI_API_KEY",
+    "UNIFI_SITE",
 }
 
 # Only load env file at module level if not in unified mode
@@ -53,6 +54,7 @@ if not os.getenv("MCP_UNIFIED_MODE"):
 UNIFI_EXPORTER_PATH = SCRIPT_DIR / "unifi_exporter.py"
 UNIFI_HOST = os.getenv("UNIFI_HOST", "192.168.1.1")
 UNIFI_API_KEY = os.getenv("UNIFI_API_KEY", "")
+UNIFI_SITE = os.getenv("UNIFI_SITE", "default")
 
 # Cache configuration
 CACHE_DIR = Path(tempfile.gettempdir()) / "unifi_mcp_cache"
