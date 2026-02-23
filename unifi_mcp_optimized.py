@@ -335,7 +335,11 @@ def format_network_clients(data: dict) -> str:
     """Format network clients output"""
     clients = data.get("clients", [])
     # Create network lookup by name (exporter uses "network" field with name, not ID)
-    networks_by_name = {n["name"]: n for n in data.get("networks", [])}
+    networks_by_name = {
+        n_name: n
+        for n in data.get("networks", [])
+        if (n_name := n.get("name"))
+    }
 
     output = "=== NETWORK CLIENTS ===\n\n"
     output += f"Total: {len(clients)} active clients\n\n"
@@ -343,8 +347,8 @@ def format_network_clients(data: dict) -> str:
     # Group by VLAN/network
     by_network = {}
     for client in clients:
-        # Exporter provides "network" field with network name, not "network_id"
-        network_name = client.get("network", "Unknown")
+        # Prefer human-readable network_name; fall back to network and then "Unknown"
+        network_name = client.get("network_name") or client.get("network") or "Unknown"
         if network_name not in by_network:
             by_network[network_name] = []
         by_network[network_name].append(client)
@@ -411,12 +415,12 @@ def format_network_summary(data: dict) -> str:
     # Top networks by client count
     by_network = {}
     for client in clients:
-        # Exporter provides "network" field with network name, not "network_id"
-        network_name = client.get("network", "Unknown")
+        # Prefer human-readable network_name; fall back to network and then "Unknown"
+        network_name = client.get("network_name") or client.get("network") or "Unknown"
         by_network[network_name] = by_network.get(network_name, 0) + 1
 
     output += f"\nTOP NETWORKS:\n"
-    networks_dict = {n["name"]: n for n in networks}
+    networks_dict = {n.get("name"): n for n in networks if n.get("name")}
     for network_name, count in sorted(
         by_network.items(), key=lambda x: x[1], reverse=True
     )[:5]:
@@ -632,7 +636,12 @@ async def get_client_details(client_identifier: str) -> str:
         data = await get_unifi_data()
         clients = data.get("clients", [])
         # Create network lookup by name (exporter uses "network" field with name, not ID)
-        networks = {n["name"]: n for n in data.get("networks", [])}
+        networks = {}
+        for n in data.get("networks", []):
+            name = n.get("name")
+            if not name:
+                continue
+            networks[name] = n
 
         # Find the client
         for client in clients:
@@ -645,8 +654,8 @@ async def get_client_details(client_identifier: str) -> str:
                 client_identifier == ip or
                 client_identifier.lower() == mac.lower()):
 
-                # Exporter provides "network" field with network name, not "network_id"
-                network_name = client.get("network", "Unknown")
+                # Prefer human-readable network_name, fall back to network if needed
+                network_name = client.get("network_name") or client.get("network", "Unknown")
                 network = networks.get(network_name, {})
                 vlan = network.get("vlan", "N/A")
 
