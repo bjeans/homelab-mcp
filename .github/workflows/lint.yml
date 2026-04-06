@@ -64,7 +64,23 @@ jobs:
         echo "Running MyPy type checking..."
         mypy *.py --ignore-missing-imports --no-strict-optional --python-version 3.13|| true
       continue-on-error: true
-      
+    
+    - name: Smoke test — imports and syntax
+      run: |
+        python -c "import mcp; print('mcp OK')"
+        python -c "import fastmcp; print('fastmcp OK')"
+        python -c "import aiohttp; print('aiohttp OK')"
+        python -c "import yaml; print('yaml OK')"
+        python -m py_compile ansible_mcp_server.py
+        python -m py_compile docker_mcp_podman.py
+        python -m py_compile ollama_mcp.py
+        python -m py_compile pihole_mcp.py
+        python -m py_compile unifi_mcp_optimized.py
+        python -m py_compile ups_mcp_server.py
+        python -m py_compile ping_mcp_server.py
+        python -m py_compile homelab_unified_mcp.py
+        echo "✅ All imports and syntax checks passed"
+        
     - name: Summary
       if: success()
       run: |
