@@ -21,6 +21,8 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional
 
+import struct
+
 import aiohttp
 
 from fastmcp import FastMCP
@@ -574,11 +576,38 @@ async def get_container_logs(hostname: str, container: str, tail: int = 100) -> 
 
         url = f"http://{config['endpoint']}{log_endpoint}"
 
-        import aiohttp
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 if response.status == 200:
-                    log_data = await response.text()
+                    raw_data = await response.read()
+                    content_type = response.headers.get("Content-Type", "")
+
+                    # Docker multiplexed stream: each frame has an 8-byte header
+                    # Byte 0: stream type (0x01=stdout, 0x02=stderr)
+                    # Bytes 1-3: zero padding
+                    # Bytes 4-7: frame size as big-endian uint32
+                    if "multiplexed-stream" in content_type:
+                        log_lines = []
+                        offset = 0
+                        while offset + 8 <= len(raw_data):
+                            frame_size = struct.unpack(">I", raw_data[offset + 4:offset + 8])[0]
+                            offset += 8
+                            if frame_size == 0:
+                                continue
+                            if offset + frame_size > len(raw_data):
+                                # Partial/truncated frame — decode what we have
+                                frame_bytes = raw_data[offset:]
+                                if frame_bytes:
+                                    log_lines.append(frame_bytes.decode("utf-8", errors="replace"))
+                                break
+                            frame_bytes = raw_data[offset:offset + frame_size]
+                            log_lines.append(frame_bytes.decode("utf-8", errors="replace"))
+                            offset += frame_size
+                        log_data = "".join(log_lines)
+                    else:
+                        # TTY mode or Podman: raw text stream
+                        log_data = raw_data.decode("utf-8", errors="replace")
+
                     output = f"=== LOGS: {container} on {hostname} ===\n\n"
                     output += f"Last {tail} lines:\n\n"
                     output += log_data
