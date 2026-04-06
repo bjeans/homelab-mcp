@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Homelab Unified MCP Server v2.3 (FastMCP)
+Homelab Unified MCP Server v3.1 (FastMCP)
 Unified server that combines all homelab MCP servers into a single entry point
-Uses FastMCP's native composition pattern - no manual wrappers needed
+Uses FastMCP's native mount() composition pattern - no manual wrappers needed
 """
 
 import logging
@@ -74,19 +74,11 @@ def compose_servers():
         'ups': ups_mcp_server.mcp,
     }
 
-    # Compose tools from all sub-servers
-    # FastMCP's FunctionTool objects can be directly added to another FastMCP instance
+    # Compose tools from all sub-servers using FastMCP 3.x mount()
+    # mount() without a prefix merges tools flat, preserving original tool names
     for server_name, server_mcp in subservers.items():
-        # Access the internal tools dict (FastMCP stores tools in _tool_manager._tools)
-        # Each tool is already properly registered with its prefix from the sub-server
-        if hasattr(server_mcp, '_tool_manager') and hasattr(server_mcp._tool_manager, '_tools'):
-            tools = server_mcp._tool_manager._tools
-            for tool_name, tool in tools.items():
-                # Add tool directly - FastMCP handles the registration
-                mcp.add_tool(tool)
-            logger.info(f"Added {len(tools)} {server_name} tools")
-        else:
-            logger.warning(f"Could not find tools in {server_name} server")
+        mcp.mount(server_mcp)
+        logger.info(f"Mounted {server_name} server")
 
     logger.info("All sub-servers composed successfully")
 
