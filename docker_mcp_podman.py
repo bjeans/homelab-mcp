@@ -21,6 +21,8 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional
 
+import struct
+
 import aiohttp
 
 from fastmcp import FastMCP
@@ -574,9 +576,6 @@ async def get_container_logs(hostname: str, container: str, tail: int = 100) -> 
 
         url = f"http://{config['endpoint']}{log_endpoint}"
 
-        import struct
-
-        import aiohttp
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 if response.status == 200:
@@ -593,7 +592,13 @@ async def get_container_logs(hostname: str, container: str, tail: int = 100) -> 
                         while offset + 8 <= len(raw_data):
                             frame_size = struct.unpack(">I", raw_data[offset + 4:offset + 8])[0]
                             offset += 8
+                            if frame_size == 0:
+                                continue
                             if offset + frame_size > len(raw_data):
+                                # Partial/truncated frame — decode what we have
+                                frame_bytes = raw_data[offset:]
+                                if frame_bytes:
+                                    log_lines.append(frame_bytes.decode("utf-8", errors="replace"))
                                 break
                             frame_bytes = raw_data[offset:offset + frame_size]
                             log_lines.append(frame_bytes.decode("utf-8", errors="replace"))
