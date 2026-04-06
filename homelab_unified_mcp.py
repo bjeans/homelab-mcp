@@ -49,7 +49,8 @@ def compose_servers():
     """Compose all sub-servers into unified server using FastMCP's native pattern
 
     This function runs at module import time to register all tools from sub-servers.
-    FastMCP's add_tool() method properly handles tool registration without manual wrappers.
+    FastMCP's mount() method merges tools from each sub-server without prefixing,
+    preserving flat tool names (e.g., 'docker_list_containers', not 'docker/docker_list_containers').
     """
     # Import sub-servers (they each have their own mcp instance with decorated tools)
     import ansible_mcp_server
