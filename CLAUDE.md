@@ -186,13 +186,13 @@ All tools should include `ToolAnnotations` to provide behavioral hints to MCP cl
 
 #### 4. Unified Server Composition
 
-The unified server uses **FastMCP's native composition** - no manual wrapper functions needed!
+The unified server uses **FastMCP's `mount()` API** (FastMCP 3.x) - no manual wrapper functions needed!
 
 ```python
 #!/usr/bin/env python3
 """
-Homelab Unified MCP Server v3.0 (FastMCP)
-Combines all 7 sub-servers using FastMCP's native composition
+Homelab Unified MCP Server v3.1 (FastMCP)
+Combines all 7 sub-servers using FastMCP's native mount() composition
 """
 
 from fastmcp import FastMCP
@@ -207,14 +207,17 @@ os.environ["MCP_UNIFIED_MODE"] = "1"
 
 
 def compose_servers():
-    """Compose all sub-servers into unified server"""
+    """Compose all sub-servers into unified server using FastMCP's native pattern
+
+    FastMCP's mount() method merges tools from each sub-server without prefixing,
+    preserving flat tool names (e.g., 'docker_list_containers', not 'docker/docker_list_containers').
+    """
     # Import sub-servers (each has its own mcp instance with decorated tools)
     import ansible_mcp_server
     import docker_mcp_podman
     import ups_mcp_server
     # ... etc
 
-    # Collect sub-servers
     subservers = {
         'ansible': ansible_mcp_server.mcp,
         'docker': docker_mcp_podman.mcp,
@@ -222,12 +225,11 @@ def compose_servers():
         # ... etc
     }
 
-    # Compose tools from all sub-servers
+    # mount() without a prefix merges tools flat, preserving original tool names.
+    # Do NOT pass prefix=server_name or tools will be namespaced (e.g. 'ansible/ansible_list_hosts').
     for server_name, server_mcp in subservers.items():
-        if hasattr(server_mcp, '_tool_manager'):
-            tools = server_mcp._tool_manager._tools
-            for tool_name, tool in tools.items():
-                mcp.add_tool(tool)
+        mcp.mount(server_mcp)
+        logger.info(f"Mounted {server_name} server")
 
     logger.info("All sub-servers composed successfully")
 
@@ -242,6 +244,7 @@ compose_servers()
 - ✅ FastMCP handles tool registration automatically
 - ✅ Each sub-server works standalone or in unified mode
 - ✅ Single source of truth for each tool
+- ✅ Uses public `mount()` API — no reliance on private internals
 
 ### Why FastMCP?
 
