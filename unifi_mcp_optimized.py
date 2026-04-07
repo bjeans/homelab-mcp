@@ -334,7 +334,12 @@ def format_network_devices(data: dict) -> str:
 def format_network_clients(data: dict) -> str:
     """Format network clients output"""
     clients = data.get("clients", [])
-    networks = {n["_id"]: n for n in data.get("networks", [])}
+    # Create network lookup by name (exporter uses "network" field with name, not ID)
+    networks_by_name = {
+        n_name: n
+        for n in data.get("networks", [])
+        if (n_name := n.get("name"))
+    }
 
     output = "=== NETWORK CLIENTS ===\n\n"
     output += f"Total: {len(clients)} active clients\n\n"
@@ -342,16 +347,17 @@ def format_network_clients(data: dict) -> str:
     # Group by VLAN/network
     by_network = {}
     for client in clients:
-        network_id = client.get("network_id", "unknown")
-        if network_id not in by_network:
-            by_network[network_id] = []
-        by_network[network_id].append(client)
+        # Prefer human-readable network_name; fall back to network and then "Unknown"
+        network_name = client.get("network_name") or client.get("network") or "Unknown"
+        if network_name not in by_network:
+            by_network[network_name] = []
+        by_network[network_name].append(client)
 
-    for network_id, network_clients in sorted(
+    for network_name, network_clients in sorted(
         by_network.items(), key=lambda x: len(x[1]), reverse=True
     ):
-        network_name = networks.get(network_id, {}).get("name", "Unknown")
-        vlan = networks.get(network_id, {}).get("vlan", "N/A")
+        network_info = networks_by_name.get(network_name, {})
+        vlan = network_info.get("vlan", "N/A")
 
         output += f"\n{network_name} (VLAN {vlan}) - {len(network_clients)} clients:\n"
 
@@ -409,17 +415,18 @@ def format_network_summary(data: dict) -> str:
     # Top networks by client count
     by_network = {}
     for client in clients:
-        network_id = client.get("network_id", "unknown")
-        by_network[network_id] = by_network.get(network_id, 0) + 1
+        # Prefer human-readable network_name; fall back to network and then "Unknown"
+        network_name = client.get("network_name") or client.get("network") or "Unknown"
+        by_network[network_name] = by_network.get(network_name, 0) + 1
 
     output += f"\nTOP NETWORKS:\n"
-    networks_dict = {n["_id"]: n for n in networks}
-    for network_id, count in sorted(
+    networks_dict = {n.get("name"): n for n in networks if n.get("name")}
+    for network_name, count in sorted(
         by_network.items(), key=lambda x: x[1], reverse=True
     )[:5]:
-        name = networks_dict.get(network_id, {}).get("name", "Unknown")
-        vlan = networks_dict.get(network_id, {}).get("vlan", "N/A")
-        output += f"  • {name} (VLAN {vlan}): {count} clients\n"
+        network_info = networks_dict.get(network_name, {})
+        vlan = network_info.get("vlan", "N/A")
+        output += f"  • {network_name} (VLAN {vlan}): {count} clients\n"
 
     return output
 
@@ -628,7 +635,13 @@ async def get_client_details(client_identifier: str) -> str:
     try:
         data = await get_unifi_data()
         clients = data.get("clients", [])
-        networks = {n["_id"]: n for n in data.get("networks", [])}
+        # Create network lookup by name (exporter uses "network" field with name, not ID)
+        networks = {}
+        for n in data.get("networks", []):
+            name = n.get("name")
+            if not name:
+                continue
+            networks[name] = n
 
         # Find the client
         for client in clients:
@@ -641,9 +654,9 @@ async def get_client_details(client_identifier: str) -> str:
                 client_identifier == ip or
                 client_identifier.lower() == mac.lower()):
 
-                network_id = client.get("network_id", "unknown")
-                network = networks.get(network_id, {})
-                network_name = network.get("name", "Unknown")
+                # Prefer human-readable network_name, fall back to network if needed
+                network_name = client.get("network_name") or client.get("network", "Unknown")
+                network = networks.get(network_name, {})
                 vlan = network.get("vlan", "N/A")
 
                 is_wired = client.get("is_wired", False)
