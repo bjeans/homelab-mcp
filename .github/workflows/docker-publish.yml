@@ -101,7 +101,7 @@ jobs:
       - name: Docker Scout - Scan for vulnerabilities (PRs only)
         id: docker-scout
         if: github.event_name == 'pull_request'
-        uses: docker/scout-action@v1.20.1
+        uses: docker/scout-action@v1.20.4
         with:
           command: cves
           image: ${{ steps.meta.outputs.tags }}
