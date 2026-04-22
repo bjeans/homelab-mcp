@@ -12,7 +12,7 @@ aiohttp>=3.13.3
 
 # Sync HTTP client for Unifi exporter and fallback operations
 requests>=2.31.0
-urllib3>=2.0.0
+urllib3>=2.6.3
 
 # YAML parsing for Ansible inventory
 PyYAML>=6.0
