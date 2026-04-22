@@ -3,7 +3,7 @@
 
 # Linting and Code Quality
 flake8>=7.0.0           # Python linting
-pylint>=3.0.0           # Comprehensive Python linter
+pylint>=4.0.5           # Comprehensive Python linter
 black>=24.0.0           # Code formatter
 isort>=5.13.0           # Import sorter
 mypy>=1.8.0             # Static type checker
