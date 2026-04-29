@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/bjeans-homelab-mcp-badge.png)](https://mseep.ai/app/bjeans-homelab-mcp)
+
 # Homelab MCP Servers
 
 <p align="center">
